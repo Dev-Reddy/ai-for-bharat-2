@@ -1,0 +1,2 @@
+-- Local seed placeholder.
+-- Hosted Supabase project is the source of truth for auth bootstrap data.
