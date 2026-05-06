@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #ffffff;
+  --color-bg-soft: #f8fafc;
+  --color-surface-glass: rgba(255, 255, 255, 0.7);
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-text-1: #0f172a;
+  --color-text-2: #475569;
+  --color-accent-primary: #2563eb;
+  --color-accent-secondary: #06b6d4;
+  
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  
+  --spacing-s1: 8px;
+  --spacing-s2: 16px;
+  --spacing-s3: 32px;
+  --spacing-s4: 64px;
+  
+  --radius-md-custom: 12px;
+  --radius-lg-custom: 20px;
+  
+  --shadow-custom-1: 0 10px 30px rgba(0,0,0,0.08);
+  
+  --ease-out-custom: cubic-bezier(0.16,1,0.3,1);
+  --duration-fast: 120ms;
+  --duration-base: 240ms;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-1);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.transition-base {
+  transition: all var(--duration-base) var(--ease-out-custom);
+}
+
+.transition-fast {
+  transition: all var(--duration-fast) var(--ease-out-custom);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-custom-1);
+}
+
+.active-press:active {
+  transform: translateY(1px);
+}
+
+.glass-card {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-custom-1);
+}
+
+.btn-primary {
+  background: var(--color-accent-primary);
+  color: white;
+  border-radius: 9999px;
+  transition: transform 0.2s var(--ease-out-custom);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  background: #1d4ed8;
+}
+
+.accent-gradient {
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
