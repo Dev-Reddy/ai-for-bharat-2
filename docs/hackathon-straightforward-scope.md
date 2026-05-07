@@ -20,6 +20,8 @@ This repo is following the narrow hackathon implementation path, not the broader
 
 - No multi-turn lead memory storage or retrieval.
 - No Mem0 use for lead history.
+- Mem0 is used only for shared uploaded knowledge retrieval.
+- Shared knowledge extraction behavior is controlled by one active Mem0 knowledge context in admin settings.
 - No automatic WhatsApp API sending.
 - No automatic Vapi knowledge-file syncing.
 - No tenant/client complexity.
