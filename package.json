@@ -6,6 +6,7 @@
     "doc": "docs"
   },
   "scripts": {
+    "use:supabase-env": "node scripts/use-supabase-env.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

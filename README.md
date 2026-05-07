@@ -108,6 +108,24 @@ Optional but recommended:
 
 ## Environment Variables
 
+## Frontend Supabase URL/Key (hardcoded vs env)
+
+The frontend apps keep **hardcoded Supabase URL + publishable key** in their `supabase.ts` files because Vercel env injection is known to issues in some deploy flows.
+
+For local development (especially for new devs), you must switch the frontends to **prefer env variables**. 
+
+Run once from repo root:
+
+```bash
+npm run use:supabase-env
+```
+
+This rewrites:
+
+- `apps/admin-portal/src/lib/supabase.ts` to use `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `apps/rm-portal/src/lib/supabase.ts` to use `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `apps/client-website/lib/supabase.ts` to use `process.env.NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
 ### 1. Backend
 
 Create `backend/supabase/.env` from [backend/supabase/.env.example](/Users/dev/Desktop/AIFB/backend/supabase/.env.example).
