@@ -102,6 +102,7 @@ type RawFollowUp = {
     name?: string;
     phone?: string;
     preferredLanguage?: string;
+    classification?: string;
   } | null;
 };
 

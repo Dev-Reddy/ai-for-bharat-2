@@ -190,7 +190,7 @@ export const RMDashboard = () => {
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={26}>
-                      {funnel.map((_, idx: number) => (
+                      {funnel.map((_: unknown, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
@@ -234,7 +234,7 @@ export const RMDashboard = () => {
                     <YAxis hide />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={36}>
-                      {languageBreakdown.map((_, idx: number) => (
+                      {languageBreakdown.map((_: unknown, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
@@ -259,7 +259,7 @@ export const RMDashboard = () => {
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
-                      {objectionBreakdown.map((_, idx: number) => (
+                      {objectionBreakdown.map((_: unknown, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
