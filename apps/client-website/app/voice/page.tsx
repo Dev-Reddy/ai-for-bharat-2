@@ -6,6 +6,8 @@ import { ArrowLeft, Clock3, MessageSquareMore, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { startPublicLeadChat } from "@/services/publicApi";
 import { useLeadSessionStore } from "@/store/leadSessionStore";
+import { getSupabaseClient } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function VoicePage() {
   const router = useRouter();
@@ -19,6 +21,41 @@ export default function VoicePage() {
       router.replace("/");
     }
   }, [lead, router, session?.callThreadId]);
+
+  useEffect(() => {
+    const callThreadId = session?.callThreadId;
+    if (!callThreadId) return;
+
+    const supabase = getSupabaseClient();
+
+    const channel = supabase
+      .channel(`call-thread-${callThreadId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "call_threads", filter: `id=eq.${callThreadId}` },
+        (payload) => {
+          try {
+            const row: any = payload.new;
+            const status = row?.status;
+            const providerPayload = row?.provider_payload ?? {};
+            const endedMessage = row?.last_error ?? providerPayload?.endedMessage ?? providerPayload?.ended_message ?? providerPayload?.ended_message_text;
+            const endedReason = providerPayload?.endedReason ?? providerPayload?.ended_reason ?? row?.ended_reason;
+
+            if (status === "failed" || status === "ended" || endedMessage) {
+              const message = endedMessage ?? `Call failed: ${endedReason ?? status}`;
+              toast.error(message);
+            }
+          } catch (e) {
+            // ignore
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.callThreadId]);
 
   if (!lead || !session?.callThreadId) {
     return null;

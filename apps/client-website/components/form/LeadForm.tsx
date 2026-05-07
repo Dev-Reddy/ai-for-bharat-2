@@ -2,7 +2,7 @@
 
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { leadFormSchema, LeadFormValues } from "./lead-schema";
+import { leadFormSchema, LeadFormValues, phoneCountryOptions } from "./lead-schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -18,6 +18,9 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
   const { register, handleSubmit, formState: { errors }, setValue, control } = useForm<LeadFormValues>({
     resolver: zodResolver(leadFormSchema),
     defaultValues: {
+      countryIso: "IN",
+      countryCode: "+91",
+      mobileNumber: "",
       preferredLanguage: "english",
       preferredContactMethod: "chat_now",
       whatsappConsent: false,
@@ -26,6 +29,8 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
 
   const preferredLanguage = useWatch({ control, name: "preferredLanguage" });
   const preferredContactMethod = useWatch({ control, name: "preferredContactMethod" });
+  const countryIso = useWatch({ control, name: "countryIso" });
+  const countryCode = useWatch({ control, name: "countryCode" });
 
   const onSubmit = (data: LeadFormValues) => {
     onSubmitSuccess(data);
@@ -41,9 +46,41 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
-          <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" disabled={isLoading} {...register("phone")} className="rounded-xl border-gray-200 focus-visible:ring-[#0ea5e9] bg-white h-11" />
-          {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
+          <Label htmlFor="countryIso">Country <span className="text-red-500">*</span></Label>
+          <select
+            id="countryIso"
+            disabled={isLoading}
+            value={countryIso}
+            onChange={(event) => {
+              const next = phoneCountryOptions.find((option) => option.iso === event.target.value) ?? phoneCountryOptions[0];
+              setValue("countryIso", next.iso, { shouldValidate: true });
+              setValue("countryCode", next.code, { shouldValidate: true });
+            }}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
+          >
+            {phoneCountryOptions.map((option) => (
+              <option key={option.iso} value={option.iso}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <input type="hidden" value={countryIso} {...register("countryIso")} />
+          {errors.countryIso && <p className="text-sm text-red-500">{errors.countryIso.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="mobileNumber">Mobile Number <span className="text-red-500">*</span></Label>
+          <div className="flex gap-3">
+            <Input
+              value={countryCode}
+              readOnly
+              tabIndex={-1}
+              className="w-28 rounded-xl border-gray-200 bg-slate-50 text-slate-600 h-11"
+            />
+            <input type="hidden" value={countryCode} {...register("countryCode")} />
+            <Input id="mobileNumber" type="tel" placeholder="9876543210" disabled={isLoading} {...register("mobileNumber")} className="flex-1 rounded-xl border-gray-200 focus-visible:ring-[#0ea5e9] bg-white h-11" />
+          </div>
+          {errors.countryCode && <p className="text-sm text-red-500">{errors.countryCode.message}</p>}
+          {errors.mobileNumber && <p className="text-sm text-red-500">{errors.mobileNumber.message}</p>}
         </div>
       </div>
 

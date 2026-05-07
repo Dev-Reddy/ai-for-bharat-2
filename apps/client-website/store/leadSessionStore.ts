@@ -4,7 +4,11 @@ import { persist } from 'zustand/middleware';
 export interface LeadData {
   id?: string;
   name: string;
-  phone: string;
+  phone?: string;
+  phoneE164?: string;
+  countryIso: string;
+  countryCode: string;
+  mobileNumber: string;
   email?: string;
   address?: string;
   city?: string;

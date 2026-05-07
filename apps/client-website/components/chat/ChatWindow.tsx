@@ -155,6 +155,9 @@ export function ChatWindow() {
 
     try {
       const result = await sendPublicChatMessage(chatThreadId, outgoing);
+      const refreshed = await getPublicThreadMessages(chatThreadId);
+      setThreadStatus(refreshed.thread.status);
+      setMessages(refreshed.messages.map(normalizeMessage));
       if (result.conversationComplete) {
         setThreadStatus("completed");
         setTimeout(() => {

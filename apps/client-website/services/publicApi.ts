@@ -1,35 +1,19 @@
 import { LeadData } from "@/store/leadSessionStore";
-import { assertSupabaseConfigured, getSupabaseClient } from "@/lib/supabase";
+import { assertSupabaseConfigured } from "@/lib/supabase";
 
 const API_BASE = `${
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
 }/functions/v1/api`;
 
-async function ensureAnonymousSession() {
-  assertSupabaseConfigured();
-  const supabase = getSupabaseClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session?.access_token) {
-    return sessionData.session.access_token;
-  }
-
-  const { data, error } = await supabase.auth.signInAnonymously();
-
-  if (error || !data.session?.access_token) {
-    throw new Error(error?.message ?? "Unable to create anonymous session.");
-  }
-
-  return data.session.access_token;
-}
-
 async function publicRequest<T>(path: string, init: RequestInit = {}) {
   assertSupabaseConfigured();
-  const accessToken = await ensureAnonymousSession();
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+      apikey: supabaseKey,
       ...(init.headers ?? {}),
     },
   });
@@ -48,6 +32,10 @@ export type PublicLeadCreateResponse = {
     id: string;
     name: string;
     phone: string;
+    phoneE164: string;
+    countryIso: string;
+    countryCode: string;
+    mobileNumberRaw: string;
     email?: string | null;
     address?: string | null;
     preferredLanguage?: string | null;
@@ -76,11 +64,20 @@ export type PublicLeadCreateResponse = {
 };
 
 export const createPublicLead = async (data: LeadData) => {
-  return await publicRequest<PublicLeadCreateResponse>("/public/leads", {
+  assertSupabaseConfigured();
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
+  
+  const response = await fetch(`${API_BASE}/public/client-leads`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": supabaseKey,
+    },
     body: JSON.stringify({
       name: data.name,
-      phone: data.phone,
+      countryIso: data.countryIso,
+      countryCode: data.countryCode,
+      mobileNumber: data.mobileNumber,
       email: data.email || "",
       address: data.address || "",
       preferredLanguage: data.preferredLanguage || "english",
@@ -88,6 +85,14 @@ export const createPublicLead = async (data: LeadData) => {
       whatsappConsent: Boolean(data.whatsappConsent),
     }),
   });
+
+  const payload = await response.json();
+
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error?.message ?? "Request failed.");
+  }
+
+  return payload.data as PublicLeadCreateResponse;
 };
 
 export type PublicThreadMessagesResponse = {
@@ -153,5 +158,3 @@ export async function startPublicLeadChat(leadId: string) {
     method: "POST",
   });
 }
-
-export { ensureAnonymousSession };
