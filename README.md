@@ -73,7 +73,14 @@ Important data tables:
 - `analysis_system_contexts`
 - `knowledge_system_contexts`
 
-## Repos And Ports
+## App URLs
+
+Hosted deployments:
+
+- `apps/admin-portal`: `https://aifb-admin-portal.vercel.app/`
+- `apps/client-website`: `https://aifb-client-website.vercel.app/`
+- `apps/leados-website`: `https://leados-website.vercel.app/`
+- `apps/rm-portal`: `https://rm-portal-xi.vercel.app/rm/login`
 
 Default local ports:
 
@@ -205,8 +212,8 @@ supabase db reset
    - `apps/rm-portal/.env.local`
 
 5. Update backend base URLs in `backend/supabase/.env`:
-   - `APP_BASE_URL_ADMIN=http://localhost:3000`
-   - `APP_BASE_URL_RM=http://localhost:5173`
+   - `APP_BASE_URL_ADMIN=https://aifb-admin-portal.vercel.app/`
+   - `APP_BASE_URL_RM=https://rm-portal-xi.vercel.app/rm/login`
 
 6. Serve edge functions locally:
 
