@@ -280,10 +280,10 @@ insert into public.analysis_system_contexts (
   is_active
 )
 select
-  'Theme 7 Default Scoring Context',
-  'Straightforward transcript scoring context aligned to Theme 7 AI Voice Agent for Partner Lead Conversion.',
+  'Default Lead Scoring Context',
+  'Straightforward transcript scoring context for AI partner lead conversion.',
   $prompt$
-You are the scoring engine for Rupeezy's Theme 7 AI Voice Agent for Partner Lead Conversion.
+You are the scoring engine for Rupeezy's AI partner lead conversion workflow.
 
 Your job is to evaluate a completed chat or voice transcript and produce a structured lead qualification result.
 
@@ -363,5 +363,5 @@ $prompt$,
   true
 where not exists (
   select 1 from public.analysis_system_contexts
-  where name = 'Theme 7 Default Scoring Context'
+  where name = 'Default Lead Scoring Context'
 );
