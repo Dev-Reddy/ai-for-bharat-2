@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_URLS } from "@/lib/app-urls";
 
 export default function Footer() {
   return (
@@ -22,8 +23,8 @@ export default function Footer() {
         <div className="flex flex-wrap gap-4 sm:gap-6 text-sm text-text-2">
           <Link href="#product-preview" className="hover:text-text-1 transition-colors">Product</Link>
           <Link href="#cta" className="hover:text-text-1 transition-colors">Demo</Link>
-          <Link href="/admin" className="hover:text-text-1 transition-colors">Admin Portal</Link>
-          <Link href="/rm" className="hover:text-text-1 transition-colors">RM Portal</Link>
+          <Link href={APP_URLS.adminPortal} className="hover:text-text-1 transition-colors">Admin Portal</Link>
+          <Link href={APP_URLS.rmPortal} className="hover:text-text-1 transition-colors">RM Portal</Link>
           <Link href="#architecture" className="hover:text-text-1 transition-colors">Architecture</Link>
         </div>
       </div>

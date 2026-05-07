@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
+import { APP_URLS } from '@/lib/app-urls';
 
 export default function Navigation() {
   const [scrolled, setScrolled] = useState(false);
@@ -40,10 +41,10 @@ export default function Navigation() {
 
           <div className="flex items-center gap-4">
             <div className="hidden lg:flex items-center gap-2 border-r border-border-subtle pr-4 mr-1">
-              <Link href="/admin" className="text-sm font-semibold text-text-2 hover:text-text-1 px-3 py-2 transition-colors">
+              <Link href={APP_URLS.adminPortal} className="text-sm font-semibold text-text-2 hover:text-text-1 px-3 py-2 transition-colors">
                 Admin Portal
               </Link>
-              <Link href="/rm" className="text-sm font-semibold text-text-2 hover:text-text-1 px-3 py-2 transition-colors">
+              <Link href={APP_URLS.rmPortal} className="text-sm font-semibold text-text-2 hover:text-text-1 px-3 py-2 transition-colors">
                 RM Portal
               </Link>
             </div>
@@ -71,8 +72,8 @@ export default function Navigation() {
             <Link href="#architecture" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">Architecture</Link>
             <Link href="#cta" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">Demo</Link>
             <div className="h-px bg-border-subtle my-2"></div>
-            <Link href="/admin" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">Admin Portal</Link>
-            <Link href="/rm" onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">RM Portal</Link>
+            <Link href={APP_URLS.adminPortal} onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">Admin Portal</Link>
+            <Link href={APP_URLS.rmPortal} onClick={() => setMobileMenuOpen(false)} className="text-lg font-medium text-text-1 p-2 hover:bg-bg-soft rounded-lg">RM Portal</Link>
           </div>
         </div>
       )}

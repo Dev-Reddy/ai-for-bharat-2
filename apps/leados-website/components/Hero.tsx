@@ -1,4 +1,5 @@
 import { ArrowRight, Bot, Target, Users, Zap } from "lucide-react";
+import { APP_URLS } from "@/lib/app-urls";
 
 export default function Hero() {
   return (
@@ -23,10 +24,10 @@ export default function Hero() {
             Try Live Demo
             <ArrowRight className="h-5 w-5" />
           </a>
-          <a href="/admin" className="px-8 py-4 border border-border-subtle rounded-full text-base font-semibold text-text-1 bg-bg-primary hover:bg-slate-50 transition-colors w-full sm:w-auto text-center">
+          <a href={APP_URLS.adminPortal} className="px-8 py-4 border border-border-subtle rounded-full text-base font-semibold text-text-1 bg-bg-primary hover:bg-slate-50 transition-colors w-full sm:w-auto text-center">
             View Admin Portal
           </a>
-          <a href="/rm" className="px-8 py-4 border border-border-subtle rounded-full text-base font-semibold text-text-1 bg-bg-primary hover:bg-slate-50 transition-colors w-full sm:w-auto text-center">
+          <a href={APP_URLS.rmPortal} className="px-8 py-4 border border-border-subtle rounded-full text-base font-semibold text-text-1 bg-bg-primary hover:bg-slate-50 transition-colors w-full sm:w-auto text-center">
             Open RM Portal
           </a>
         </div>
