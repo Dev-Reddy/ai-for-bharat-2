@@ -1,0 +1,258 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/admin-portal/**"
+      - "apps/client-website/**"
+      - "apps/leados-website/**"
+      - "apps/rm-portal/**"
+      - ".github/workflows/deploy-to-production.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_admin_portal:
+        description: Deploy admin portal
+        required: false
+        default: false
+        type: boolean
+      deploy_client_website:
+        description: Deploy client website
+        required: false
+        default: false
+        type: boolean
+      deploy_leados_website:
+        description: Deploy leados website
+        required: false
+        default: false
+        type: boolean
+      deploy_rm_portal:
+        description: Deploy RM portal
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  detect_changes:
+    name: Detect Changed Apps
+    runs-on: ubuntu-latest
+    outputs:
+      admin_portal: ${{ steps.filter.outputs.admin_portal }}
+      client_website: ${{ steps.filter.outputs.client_website }}
+      leados_website: ${{ steps.filter.outputs.leados_website }}
+      rm_portal: ${{ steps.filter.outputs.rm_portal }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed app paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            admin_portal:
+              - 'apps/admin-portal/**'
+            client_website:
+              - 'apps/client-website/**'
+            leados_website:
+              - 'apps/leados-website/**'
+            rm_portal:
+              - 'apps/rm-portal/**'
+
+  deploy_admin_portal:
+    name: Deploy admin-portal
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: |
+      (github.event_name == 'push' && needs.detect_changes.outputs.admin_portal == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_admin_portal)
+    concurrency:
+      group: vercel-apps-admin-portal-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN_PORTAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate Vercel configuration
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID secret"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID_ADMIN_PORTAL secret"; exit 1; }
+
+      - name: Prepare Vercel project metadata
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<EOF
+          {
+            "projectId": "$VERCEL_PROJECT_ID",
+            "orgId": "$VERCEL_ORG_ID"
+          }
+          EOF
+
+      - name: Pull Vercel project settings
+        run: npx vercel@latest pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: npx vercel@latest build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to Vercel
+        run: npx vercel@latest deploy --prebuilt --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+  deploy_client_website:
+    name: Deploy client-website
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: |
+      (github.event_name == 'push' && needs.detect_changes.outputs.client_website == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_client_website)
+    concurrency:
+      group: vercel-apps-client-website-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT_WEBSITE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate Vercel configuration
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID secret"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID_CLIENT_WEBSITE secret"; exit 1; }
+
+      - name: Prepare Vercel project metadata
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<EOF
+          {
+            "projectId": "$VERCEL_PROJECT_ID",
+            "orgId": "$VERCEL_ORG_ID"
+          }
+          EOF
+
+      - name: Pull Vercel project settings
+        run: npx vercel@latest pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: npx vercel@latest build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to Vercel
+        run: npx vercel@latest deploy --prebuilt --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+  deploy_leados_website:
+    name: Deploy leados-website
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: |
+      (github.event_name == 'push' && needs.detect_changes.outputs.leados_website == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_leados_website)
+    concurrency:
+      group: vercel-apps-leados-website-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_LEADOS_WEBSITE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate Vercel configuration
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID secret"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID_LEADOS_WEBSITE secret"; exit 1; }
+
+      - name: Prepare Vercel project metadata
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<EOF
+          {
+            "projectId": "$VERCEL_PROJECT_ID",
+            "orgId": "$VERCEL_ORG_ID"
+          }
+          EOF
+
+      - name: Pull Vercel project settings
+        run: npx vercel@latest pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: npx vercel@latest build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to Vercel
+        run: npx vercel@latest deploy --prebuilt --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+  deploy_rm_portal:
+    name: Deploy rm-portal
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: |
+      (github.event_name == 'push' && needs.detect_changes.outputs.rm_portal == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_rm_portal)
+    concurrency:
+      group: vercel-apps-rm-portal-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_RM_PORTAL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate Vercel configuration
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID secret"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID_RM_PORTAL secret"; exit 1; }
+
+      - name: Prepare Vercel project metadata
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<EOF
+          {
+            "projectId": "$VERCEL_PROJECT_ID",
+            "orgId": "$VERCEL_ORG_ID"
+          }
+          EOF
+
+      - name: Pull Vercel project settings
+        run: npx vercel@latest pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: npx vercel@latest build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to Vercel
+        run: npx vercel@latest deploy --prebuilt --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
