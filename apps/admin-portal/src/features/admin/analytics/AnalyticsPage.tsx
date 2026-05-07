@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Analytics</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Theme 7 funnel visibility: conversation volume, qualification breakdown, language mix, objections, and RM handoff load.
+            Funnel visibility for conversation volume, qualification breakdown, language mix, objections, and RM handoff load.
           </p>
         </div>
         <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
@@ -115,7 +115,7 @@ export default function AnalyticsPage() {
         <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
           <CardHeader>
             <CardTitle>Conversation Funnel</CardTitle>
-            <CardDescription>Theme 7 path from lead capture to RM handoff.</CardDescription>
+            <CardDescription>Lead flow from capture to analysis and RM handoff.</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             {isFetching ? (

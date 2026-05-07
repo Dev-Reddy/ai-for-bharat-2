@@ -20,7 +20,7 @@ const contextSchema = z.object({
   promptTemplate: z.string().min(40, "Prompt should be descriptive"),
 });
 
-const defaultPrompt = `You are the transcript scoring engine for Rupeezy's Theme 7 AI Voice Agent for Partner Lead Conversion.
+const defaultPrompt = `You are the transcript scoring engine for Rupeezy's AI partner lead conversion workflow.
 
 Evaluate a completed chat or Vapi call transcript.
 Score the lead on:
@@ -115,10 +115,10 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl">
-      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Transcript Scoring Settings</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Theme 7 uses one active scoring context globally. This prompt controls how chat and call transcripts are analyzed.
+          One active scoring context is used globally. This prompt controls how chat and call transcripts are analyzed.
         </p>
       </div>
 
@@ -130,7 +130,7 @@ export default function SettingsPage() {
               {editingId ? "Edit Scoring Context" : "Create Scoring Context"}
             </CardTitle>
             <CardDescription>
-              Keep the prompt tightly aligned to Theme 7 scoring: interest, readiness, network size, classification, objections, and handoff summary.
+              Keep the prompt aligned to transcript scoring: interest, readiness, network size, classification, objections, and handoff summary.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">

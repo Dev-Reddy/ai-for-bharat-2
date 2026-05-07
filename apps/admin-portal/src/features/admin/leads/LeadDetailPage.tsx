@@ -109,7 +109,7 @@ export default function LeadDetailPage() {
             <CardHeader>
               <CardTitle>Transcript Summary</CardTitle>
               <CardDescription>
-                {latestConversation?.channel === "voice" ? "Voice call transcript" : "Chat transcript"} analyzed for Theme 7 qualification.
+                {latestConversation?.channel === "voice" ? "Voice call transcript" : "Chat transcript"} analyzed for lead qualification.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -163,7 +163,7 @@ export default function LeadDetailPage() {
           <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
             <CardHeader>
               <CardTitle>Scorecard</CardTitle>
-              <CardDescription>Theme 7 scoring on interest, readiness, and network fit.</CardDescription>
+              <CardDescription>Scoring on interest, readiness, and network fit.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl bg-zinc-900 p-5 text-white dark:bg-zinc-100 dark:text-zinc-900">
