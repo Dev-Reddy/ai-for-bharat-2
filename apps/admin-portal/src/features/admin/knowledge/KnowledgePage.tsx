@@ -254,7 +254,7 @@ export default function KnowledgePage() {
                     {format(new Date(doc.updatedAt), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => handleEditClick(doc)} className="bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100">Edit</Button>
                       <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => {
                         if (confirm("Are you sure you want to delete this document?")) {

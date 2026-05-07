@@ -216,7 +216,7 @@ export default function CampaignsPage() {
                   <TableCell className="text-right text-cyan-500 dark:text-cyan-400">{camp.coldCount}</TableCell>
                   <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">{camp.convertedCount}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400" onClick={(e) => { e.stopPropagation(); navigate(`/admin/campaigns/${camp.id}`); }}>View</Button>
+                    <Button variant="ghost" size="sm" className="bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400" onClick={(e) => { e.stopPropagation(); navigate(`/admin/campaigns/${camp.id}`); }}>View</Button>
                   </TableCell>
                 </TableRow>
               ))

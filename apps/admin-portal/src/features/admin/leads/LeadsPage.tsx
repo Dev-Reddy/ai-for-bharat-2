@@ -69,6 +69,32 @@ export default function LeadsPage() {
 
   const queryClient = useQueryClient();
 
+  // Users (RMs) for assignment
+  const { data: usersResp } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => adminApi.getUsers(),
+  });
+  const rms = (usersResp?.data ?? []).filter((u: any) => u.role === "rm");
+
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<any | null>(null);
+  const [selectedRmId, setSelectedRmId] = useState<string>("");
+
+  const assignMutation = useMutation({
+    mutationFn: ({ leadId, rmId }: { leadId: string; rmId: string }) => adminApi.assignRm(leadId, rmId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      if (assignTarget?.id) queryClient.invalidateQueries({ queryKey: ["lead", assignTarget.id] });
+      setIsAssignOpen(false);
+      setAssignTarget(null);
+      setSelectedRmId("");
+      toast.success("RM assigned successfully");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to assign RM");
+    },
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["leads", search, classification, statusFilter, sortConfig, page],
     queryFn: () => adminApi.getLeads({
@@ -403,7 +429,7 @@ export default function LeadsPage() {
                     {format(new Date(lead.createdAt), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="inline-flex items-center gap-1 transition-opacity">
                       <button
                         type="button"
                         className="inline-flex shrink-0 items-center justify-center rounded-lg border border-red-200 bg-white px-2.5 h-7 text-sm font-medium text-red-600 transition-all hover:bg-red-50 dark:border-red-900/40 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-950/30"
@@ -416,6 +442,18 @@ export default function LeadsPage() {
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-2.5 h-7 text-sm font-medium text-zinc-700 transition-all hover:bg-zinc-50 dark:border-zinc-800/40 dark:bg-transparent dark:text-zinc-300 dark:hover:bg-zinc-950/30"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssignTarget(lead);
+                          setSelectedRmId(lead.assignedRm?.id ?? "");
+                          setIsAssignOpen(true);
+                        }}
+                      >
+                        Assign
                       </button>
                       <Link to={`/admin/leads/${lead.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50">
                         View <ChevronRight className="ml-1 h-4 w-4" />
@@ -442,6 +480,42 @@ export default function LeadsPage() {
           </Button>
         </div>
       </div>
+      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
+        <DialogContent className="bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900 dark:text-zinc-100">Assign to RM</DialogTitle>
+            <DialogDescription className="text-zinc-500 dark:text-zinc-400">Select a Relationship Manager to assign this lead to.</DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <Label className="text-zinc-700 dark:text-zinc-300">RM</Label>
+            <Select value={selectedRmId} onValueChange={(v) => setSelectedRmId(v)}>
+              <SelectTrigger className="w-full bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800">
+                <SelectValue>{rms.find((r: any) => r.id === selectedRmId)?.name ?? "Choose RM"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {rms.length === 0 ? (
+                  <SelectItem value="">No RMs available</SelectItem>
+                ) : (
+                  rms.map((rm: any) => (
+                    <SelectItem key={rm.id} value={rm.id}>{rm.name} {rm.email ? `(${rm.email})` : ''}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsAssignOpen(false); setAssignTarget(null); setSelectedRmId(""); }}>
+              Cancel
+            </Button>
+            <Button disabled={assignMutation.isPending || !selectedRmId} onClick={() => {
+              if (!assignTarget) return;
+              assignMutation.mutate({ leadId: assignTarget.id, rmId: selectedRmId });
+            }}>
+              {assignMutation.isPending ? "Assigning..." : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

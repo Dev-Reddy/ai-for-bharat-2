@@ -341,7 +341,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {user.role !== "admin" && (
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-2">
                         {user.invitePending && (
                           <Button
                             variant="ghost"

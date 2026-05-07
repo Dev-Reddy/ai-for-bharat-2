@@ -179,7 +179,7 @@ export default function FollowUpsPage() {
                     <div className="text-xs text-zinc-400 dark:text-zinc-500">{format(new Date(f.lastActionTime), "HH:mm")}</div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-2">
                       {f.waMeLink && (
                         <a href={f.waMeLink} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 h-7 gap-1 px-2.5 bg-[#25D366]/10 text-[#25D366] border-[#25D366]/20 hover:bg-[#25D366]/20 hover:text-[#25D366]">
                             <MessageCircle className="mr-2 h-4 w-4" />

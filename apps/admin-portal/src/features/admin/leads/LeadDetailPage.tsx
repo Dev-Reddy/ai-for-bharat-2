@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useParams } from "../../../lib/routerCompat";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -7,6 +8,17 @@ import { adminApi } from "../../../services/adminApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function getClassBadgeTone(classification: string) {
   if (classification === "hot") return "bg-orange-500 hover:bg-orange-500 text-white";
@@ -17,6 +29,29 @@ function getClassBadgeTone(classification: string) {
 export default function LeadDetailPage() {
   const { leadId } = useParams<{ leadId: string }>();
   const queryClient = useQueryClient();
+
+  const { data: usersResp } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => adminApi.getUsers(),
+  });
+  const rms = (usersResp?.data ?? []).filter((u: any) => u.role === "rm");
+
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [selectedRmId, setSelectedRmId] = useState<string>("");
+
+  const assignMutation = useMutation({
+    mutationFn: ({ leadId, rmId }: { leadId: string; rmId: string }) => adminApi.assignRm(leadId, rmId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      setIsAssignOpen(false);
+      setSelectedRmId("");
+      toast.success("RM assigned successfully");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to assign RM");
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["lead", leadId],
@@ -105,8 +140,53 @@ export default function LeadDetailPage() {
               Open WhatsApp
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedRmId(lead.assignedRm?.id ?? "");
+              setIsAssignOpen(true);
+            }}
+            disabled={assignMutation.isPending}
+          >
+            <UserRound className="mr-2 h-4 w-4" />
+            {assignMutation.isPending ? "Assigning..." : "Assign"}
+          </Button>
         </div>
       </div>
+
+      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
+        <DialogContent className="bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900 dark:text-zinc-100">Assign to RM</DialogTitle>
+            <DialogDescription className="text-zinc-500 dark:text-zinc-400">Select a Relationship Manager to assign this lead to.</DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <Label className="text-zinc-700 dark:text-zinc-300">RM</Label>
+            <Select value={selectedRmId} onValueChange={(v) => setSelectedRmId(v)}>
+              <SelectTrigger className="w-full bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800">
+                <SelectValue>{rms.find((r: any) => r.id === selectedRmId)?.name ?? "Choose RM"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {rms.length === 0 ? (
+                  <SelectItem value="">No RMs available</SelectItem>
+                ) : (
+                  rms.map((rm: any) => (
+                    <SelectItem key={rm.id} value={rm.id}>{rm.name} {rm.email ? `(${rm.email})` : ''}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsAssignOpen(false); setSelectedRmId(""); }}>
+              Cancel
+            </Button>
+            <Button disabled={assignMutation.isPending || !selectedRmId} onClick={() => assignMutation.mutate({ leadId: leadId!, rmId: selectedRmId })}>
+              {assignMutation.isPending ? "Assigning..." : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">

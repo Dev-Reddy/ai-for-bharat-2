@@ -179,7 +179,7 @@ export default function ConvertedLeadsPage() {
                     {format(new Date(lead.createdAt), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link to={`/admin/leads/${lead.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 opacity-0 group-hover:opacity-100 transition-opacity aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50">
+                    <Link to={`/admin/leads/${lead.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50">
                         View <ChevronRight className="ml-1 h-4 w-4" />
                     </Link>
                   </TableCell>
