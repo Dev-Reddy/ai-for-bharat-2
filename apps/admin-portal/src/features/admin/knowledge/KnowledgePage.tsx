@@ -36,6 +36,12 @@ function getMem0SyncStatus(doc: KnowledgeDocument) {
   return String(mem0.syncStatus);
 }
 
+function getMem0SyncError(doc: KnowledgeDocument) {
+  const mem0 = (doc.metadata as any)?.mem0;
+  if (!mem0?.lastError) return null;
+  return String(mem0.lastError);
+}
+
 export default function KnowledgePage() {
   const [sortConfig, setSortConfig] = useState<{key: keyof KnowledgeDocument, direction: 'asc'|'desc'}>({ key: 'updatedAt', direction: 'desc' });
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -49,20 +55,30 @@ export default function KnowledgePage() {
 
   const addDocMutation = useMutation({
     mutationFn: adminApi.addKnowledgeDocument,
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
       setIsAddOpen(false);
       reset();
+      const status = getMem0SyncStatus(result.data as KnowledgeDocument);
+      if (status === "failed") {
+        toast.warning("Document saved, but Mem0 indexing failed. Check sync status.");
+        return;
+      }
       toast.success("Document added successfully");
     }
   });
 
   const updateDocMutation = useMutation({
     mutationFn: ({id, payload}: {id: string, payload: any}) => adminApi.updateKnowledgeDocument(id, payload),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
       setEditingDoc(null);
       reset();
+      const status = getMem0SyncStatus(result.data as KnowledgeDocument);
+      if (status === "failed") {
+        toast.warning("Document updated, but Mem0 re-indexing failed. Check sync status.");
+        return;
+      }
       toast.success("Document updated successfully");
     }
   });
@@ -232,6 +248,11 @@ export default function KnowledgePage() {
                       {getMem0SyncStatus(doc) ? (
                         <Badge variant="outline" className="shadow-none border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300">
                           Mem0 {getMem0SyncStatus(doc)}
+                        </Badge>
+                      ) : null}
+                      {getMem0SyncError(doc) ? (
+                        <Badge variant="outline" className="shadow-none border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300 max-w-[260px] truncate" title={getMem0SyncError(doc) ?? ""}>
+                          {getMem0SyncError(doc)}
                         </Badge>
                       ) : null}
                     </div>
