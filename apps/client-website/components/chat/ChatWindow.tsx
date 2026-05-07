@@ -38,6 +38,7 @@ function normalizeMessage(message: {
 }
 
 export function ChatWindow({ threadId }: { threadId: string }) {
+  const SCROLL_BOTTOM_THRESHOLD = 80;
   const router = useRouter();
   const session = useLeadSessionStore((state) => state.session);
   const clearLead = useLeadSessionStore((state) => state.clearLead);
@@ -46,7 +47,10 @@ export function ChatWindow({ threadId }: { threadId: string }) {
   const [isLoadingThread, setIsLoadingThread] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [threadStatus, setThreadStatus] = useState<string>("active");
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const hasAutoScrolledInitiallyRef = useRef(false);
 
   const chatThreadId = threadId || session?.chatThreadId || null;
 
@@ -223,8 +227,38 @@ export function ChatWindow({ threadId }: { threadId: string }) {
   const showTypingIndicator = isSubmitting && !isAssistantStreaming;
 
   useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+    shouldAutoScrollRef.current = true;
+    hasAutoScrolledInitiallyRef.current = false;
+  }, [chatThreadId]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isNearBottom = distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD;
+
+    if (!hasAutoScrolledInitiallyRef.current || shouldAutoScrollRef.current || isNearBottom) {
+      endOfMessagesRef.current?.scrollIntoView({
+        behavior: hasAutoScrolledInitiallyRef.current ? "smooth" : "auto",
+      });
+      hasAutoScrolledInitiallyRef.current = true;
+    }
   }, [messages, isAssistantStreaming]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD;
+  }, []);
 
   const handleSend = async () => {
     if (!inputValue.trim() || !chatThreadId || isSubmitting || isAssistantStreaming) {
@@ -233,6 +267,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
     const outgoing = inputValue.trim();
     const optimisticId = `optimistic-${Date.now()}`;
+    shouldAutoScrollRef.current = true;
     setInputValue("");
     setIsSubmitting(true);
     applyIncomingMessage({
@@ -337,7 +372,11 @@ export function ChatWindow({ threadId }: { threadId: string }) {
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6"
+      >
         {isLoadingThread && (
           <div className="text-sm text-gray-500">Loading your chat history...</div>
         )}

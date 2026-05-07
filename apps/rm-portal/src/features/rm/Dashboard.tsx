@@ -45,6 +45,13 @@ const StatCard = ({ label, value, color }: { label: string; value: string | numb
   </div>
 );
 
+type DashboardHotLead = {
+  id: string;
+  name: string;
+  mainObjection?: string;
+  preferredLanguage: string;
+};
+
 export const RMDashboard = () => {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<RMDashboardPeriod>("all_time");
@@ -57,6 +64,8 @@ export const RMDashboard = () => {
   const funnel = data?.funnel ?? [];
   const classificationBreakdown = data?.classificationBreakdown ?? [];
   const languageBreakdown = data?.languageBreakdown ?? [];
+  const hotLeads = data?.hotLeads ?? [];
+  const hasHotLeads = hotLeads.length > 0;
   const objectionBreakdown = (data?.objectionBreakdown ?? []).map((row: { type: string; count: number }) => ({
     type: row.type,
     count: row.count,
@@ -104,14 +113,14 @@ export const RMDashboard = () => {
             <StatCard label="Avg score" value={`${data?.overview.averageLeadScore ?? 0}%`} color="text-indigo-600" />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sans">
-              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">Priority Hot Leads</h3>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-                {data?.hotLeads?.length ? (
-                  data.hotLeads.map((lead: any) => (
+          <div className={`grid grid-cols-1 gap-8 ${hasHotLeads ? "lg:grid-cols-2" : ""}`}>
+            {hasHotLeads && (
+              <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sans">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <h3 className="font-bold text-slate-800 uppercase text-xs tracking-widest">Priority Hot Leads</h3>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
+                  {hotLeads.map((lead: DashboardHotLead) => (
                     <div
                       key={lead.id}
                       className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group gap-3"
@@ -121,7 +130,7 @@ export const RMDashboard = () => {
                           {lead.name}
                         </h4>
                         <p className="text-xs text-slate-500 mt-1 truncate">
-                          {lead.mainObjection} • {lead.preferredLanguage}
+                          {lead.mainObjection ?? "No objection captured"} • {lead.preferredLanguage}
                         </p>
                       </div>
                       <button
@@ -132,12 +141,10 @@ export const RMDashboard = () => {
                         View Handoff
                       </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-8 text-center text-sm text-slate-500">No hot leads in this period.</div>
-                )}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sans">
               <div className="p-5 border-b border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-widest bg-slate-50/50">
@@ -183,7 +190,7 @@ export const RMDashboard = () => {
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={26}>
-                      {(funnel ?? []).map((_: any, idx: number) => (
+                      {funnel.map((_, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
@@ -227,7 +234,7 @@ export const RMDashboard = () => {
                     <YAxis hide />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={36}>
-                      {(languageBreakdown ?? []).map((_: any, idx: number) => (
+                      {languageBreakdown.map((_, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
@@ -252,7 +259,7 @@ export const RMDashboard = () => {
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
-                      {(objectionBreakdown ?? []).map((_: any, idx: number) => (
+                      {objectionBreakdown.map((_, idx: number) => (
                         <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>

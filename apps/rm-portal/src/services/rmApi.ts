@@ -44,8 +44,69 @@ function buildQueryString(params: Record<string, unknown>) {
   return query ? `?${query}` : "";
 }
 
+type RawLead = {
+  latestScoreBreakdown?: {
+    totalScore?: number;
+    classification?: string;
+    interestLevelScore?: number;
+    readinessToSignupScore?: number;
+    networkSizeScore?: number;
+  };
+  latestScore?: number;
+  progressStatus?: string;
+  contactStatus?: string;
+  preferredContactMethod?: string;
+  hasAnyCall?: boolean;
+  id: string;
+  name: string;
+  phone: string;
+  phoneE164?: string;
+  countryIso?: string;
+  countryCode?: string;
+  mobileNumberRaw?: string;
+  email?: string;
+  address?: string;
+  networkSize?: string;
+  preferredLanguage?: string;
+  overallSummary?: string;
+  recommendedNextAction?: string;
+  handoffSummary?: string;
+  objections?: Array<{ type?: string } & Record<string, unknown>>;
+  topicsCovered?: string[];
+  interestLevelScore?: number;
+  readinessToSignupScore?: number;
+  networkSizeScore?: number;
+  source?: string;
+  sourceLabel?: string;
+  createdByUserId?: string | null;
+  createdByUser?: { id: string; name: string; email: string } | null;
+  assignedRm?: { id: string; name: string; email: string } | null;
+  canStartCall?: boolean;
+  leadWaMeLink?: string | null;
+  latestTranscriptSource?: string | null;
+  latestTranscript?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  waMeLink?: string | null;
+  finalInterestScore?: string;
+};
+
+type RawFollowUp = {
+  id: string;
+  leadId: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  waMeLink?: string | null;
+  lead?: {
+    name?: string;
+    phone?: string;
+    preferredLanguage?: string;
+  } | null;
+};
+
 /** Maps API lead row to admin-parity shape for RM portal UI. */
-export function mapLead(raw: any) {
+export function mapLead(raw: RawLead) {
   const scoreBreakdown = raw.latestScoreBreakdown ?? {};
   const latestScore =
     typeof scoreBreakdown.totalScore === "number"
@@ -140,7 +201,7 @@ export const rmApi = {
       overview: {
         totalLeads: overview.overview?.totalLeads ?? 0,
         conversationCompleted: overview.overview?.conversationCompleted ?? 0,
-        assignedHotLeads: overview.overview?.hot ?? 0,
+        assignedHotLeads: hotLeads.length,
         pendingTasks: overview.rmLoad?.[0]?.pendingTaskCount ?? 0,
         followUpsDue: overview.overview?.followUpsScheduled ?? 0,
         convertedLeads: overview.overview?.converted ?? 0,
@@ -189,7 +250,15 @@ export const rmApi = {
 
   getRMHotLeads: async () => {
     const { data } = await rmApi.getRMLeads({ classification: "hot", page: 1, pageSize: 100 });
-    return data;
+    return [...data]
+      .sort((left, right) => {
+        if (right.latestScore !== left.latestScore) {
+          return right.latestScore - left.latestScore;
+        }
+
+        return new Date(right.updatedAt ?? right.createdAt ?? 0).getTime() - new Date(left.updatedAt ?? left.createdAt ?? 0).getTime();
+      })
+      .slice(0, 8);
   },
 
   getRMLeadDetail: async (leadId: string) => {
@@ -332,7 +401,7 @@ export const rmApi = {
   getRMFollowUps: async () => {
     const followUps = await apiRequest("/follow-ups?page=1&pageSize=100", { method: "GET" });
 
-    return (Array.isArray(followUps.data) ? followUps.data : []).map((item: any) => {
+    return (Array.isArray(followUps.data) ? followUps.data : []).map((item: RawFollowUp) => {
       const lead = item.lead ?? null;
       return {
         id: item.id,
