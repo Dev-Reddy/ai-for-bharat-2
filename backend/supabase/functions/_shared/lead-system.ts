@@ -492,13 +492,20 @@ async function getPortalMessageTemplates() {
 
   const rows = (data ?? []) as PortalMessageTemplateRow[];
   const map = new Map(rows.map((row) => [row.key, row]));
+  const legacyHiGreeting =
+    "Hi {{firstName}}, main Rupeezy ke partner program ke baare mein aapko short mein guide kar sakta hoon. Kya aap apne current partner setup ke baare mein batana chahenge?";
+  const defaultHiGreeting =
+    "Hi {{firstName}}, Rupeezy ke partner program mein strong earning potential aur daily payout visibility milti hai. Aap abhi kis type ka setup explore kar rahe hain?";
+  const configuredHiGreeting =
+    map.get("website_chat_greeting_template_hi")?.value ?? defaultHiGreeting;
+  const websiteChatGreetingTemplateHi =
+    configuredHiGreeting.trim() === legacyHiGreeting ? defaultHiGreeting : configuredHiGreeting;
+
   return {
     websiteChatGreetingTemplate:
       map.get("website_chat_greeting_template")?.value ??
       "Hi {{firstName}}, I can quickly walk you through Rupeezy's partner program and see if it fits you. Can you tell me a bit about your current setup?",
-    websiteChatGreetingTemplateHi:
-      map.get("website_chat_greeting_template_hi")?.value ??
-      "Hi {{firstName}}, main Rupeezy ke partner program ke baare mein aapko short mein guide kar sakta hoon. Kya aap apne current partner setup ke baare mein batana chahenge?",
+    websiteChatGreetingTemplateHi,
     whatsappFollowUpTemplate:
       map.get("whatsapp_follow_up_template")?.value ??
       "Hi {{firstName}}, thanks for speaking with Rupeezy about the AP partner program. {{recommendedNextAction}}",
@@ -1201,6 +1208,14 @@ ${knowledgeSnippets.map((snippet) => `- ${snippet}`).join("\n")}
 `;
 }
 
+function buildFallbackAssistantText(lead: LeadRow) {
+  const language = (lead.preferred_language ?? "").toLowerCase();
+  if (language.includes("hindi") || language.includes("hinglish")) {
+    return "Thanks for sharing. Aapke profile ke hisaab se AP program ka exact route RM best confirm karega. Kya aap RM callback chahenge ya main short summary bheju?";
+  }
+  return "Thanks for sharing. Based on your profile, an RM can confirm the exact AP onboarding route. Would you like an RM callback or a short summary first?";
+}
+
 function formatConversationTranscript(messages: MessageRow[]) {
   return messages
     .map((message) => `${message.sender_type.toUpperCase()}: ${message.message_text}`)
@@ -1343,11 +1358,12 @@ const generateChatReply = tracedAsync("generate_chat_reply", async ({
   }
 
   const finalText = accumulated.trim();
+  const fallbackText = buildFallbackAssistantText(lead);
 
   await serviceClient
     .from("messages")
     .update({
-      message_text: finalText || "I understand. Let me help you with the next step.",
+      message_text: finalText || fallbackText,
       metadata: {
         streaming: false,
       },
@@ -1356,7 +1372,7 @@ const generateChatReply = tracedAsync("generate_chat_reply", async ({
 
   return {
     id: placeholderMessage.id,
-    text: finalText || "I understand. Let me help you with the next step.",
+    text: finalText || fallbackText,
   };
 });
 
