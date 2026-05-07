@@ -24,11 +24,21 @@ async function getExistingPublicSession(): Promise<PublicSession> {
     };
   }
 
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user?.id) {
+    console.warn("Discarding invalid persisted Supabase public session.", userError);
+    await supabase.auth.signOut();
+    return {
+      accessToken: null,
+      userId: null,
+    };
+  }
+
   supabase.realtime.setAuth(data.session.access_token);
 
   return {
     accessToken: data.session.access_token,
-    userId: data.session.user.id,
+    userId: userData.user.id,
   };
 }
 
@@ -94,13 +104,42 @@ async function publicRequest<T>(
     },
   });
 
-  const payload = await response.json();
+  const rawPayload = await response.text();
+  const payload = rawPayload ? safeJsonParse(rawPayload) : null;
 
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error?.message ?? "Request failed.");
+  if (!response.ok || !payload || payload.success !== true) {
+    const errorMessage =
+      payload && typeof payload === "object" && "error" in payload
+        ? getApiErrorMessage(payload)
+        : `Request failed with status ${response.status}.`;
+    throw new Error(errorMessage);
   }
 
   return payload.data as T;
+}
+
+function safeJsonParse(value: string) {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function getApiErrorMessage(payload: unknown) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    payload.error &&
+    typeof payload.error === "object" &&
+    "message" in payload.error &&
+    typeof payload.error.message === "string"
+  ) {
+    return payload.error.message;
+  }
+
+  return "Request failed.";
 }
 
 export type PublicLeadCreateResponse = {

@@ -52,7 +52,12 @@ export function LeadFormSection() {
         router.push(`/chat/${result.chatThread?.id}`);
       }
     } catch (error) {
-      toast.error("Failed to submit. Please try again.");
+      console.error("Lead form submission failed.", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to submit. Please try again.";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
