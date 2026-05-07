@@ -22,8 +22,8 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
       countryCode: "+91",
       mobileNumber: "",
       preferredLanguage: "english",
+      preferredLanguageOther: "",
       preferredContactMethod: "chat_now",
-      whatsappConsent: false,
     }
   });
 
@@ -114,7 +114,22 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
                 <RadioGroupItem value="hinglish" id="lang-hinglish" />
                 <Label htmlFor="lang-hinglish" className="font-normal cursor-pointer">Hinglish</Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="other" id="lang-other" />
+                <Label htmlFor="lang-other" className="font-normal cursor-pointer">Others</Label>
+              </div>
             </RadioGroup>
+            {preferredLanguage === "other" ? (
+              <div className="space-y-2">
+                <Input
+                  placeholder="Enter preferred language"
+                  disabled={isLoading}
+                  {...register("preferredLanguageOther")}
+                  className="rounded-xl border-gray-200 focus-visible:ring-[#0ea5e9] bg-white h-11"
+                />
+                {errors.preferredLanguageOther && <p className="text-sm text-red-500">{errors.preferredLanguageOther.message}</p>}
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-3">
@@ -131,20 +146,6 @@ export function LeadForm({ onSubmitSuccess, isLoading }: LeadFormProps) {
             </RadioGroup>
           </div>
         </div>
-      </div>
-
-      <div className="pt-2">
-        <label className="flex items-start space-x-3 cursor-pointer p-4 rounded-xl border border-gray-100 bg-[#f8fafc] hover:bg-gray-50 transition-colors">
-          <input 
-            type="checkbox" 
-            disabled={isLoading}
-            className="mt-1 w-4 h-4 rounded border-gray-300 text-[#0ea5e9] focus:ring-[#0ea5e9]"
-            {...register("whatsappConsent")} 
-          />
-          <span className="text-sm text-[#475569] leading-snug">
-            I consent to receive WhatsApp messages and updates from FinPartner Pro regarding my application.
-          </span>
-        </label>
       </div>
 
       <Button 

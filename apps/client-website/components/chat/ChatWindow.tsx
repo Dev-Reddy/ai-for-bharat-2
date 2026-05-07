@@ -36,7 +36,7 @@ function normalizeMessage(message: {
   } satisfies ChatMessage;
 }
 
-export function ChatWindow() {
+export function ChatWindow({ threadId }: { threadId: string }) {
   const router = useRouter();
   const session = useLeadSessionStore((state) => state.session);
   const clearLead = useLeadSessionStore((state) => state.clearLead);
@@ -47,8 +47,7 @@ export function ChatWindow() {
   const [threadStatus, setThreadStatus] = useState<string>("active");
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
-  const chatThreadId = session?.chatThreadId ?? null;
-  const lead = session?.lead ?? null;
+  const chatThreadId = threadId || session?.chatThreadId || null;
 
   const applyIncomingMessage = (incoming: ChatMessage) => {
     setMessages((previous) => {
@@ -69,7 +68,7 @@ export function ChatWindow() {
   };
 
   useEffect(() => {
-    if (!lead || !chatThreadId) {
+    if (!chatThreadId) {
       router.replace("/");
       return;
     }
@@ -125,13 +124,32 @@ export function ChatWindow() {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_threads",
+          filter: `id=eq.${chatThreadId}`,
+        },
+        (payload) => {
+          const row = payload.new as { status?: string };
+          if (!row?.status) return;
+          setThreadStatus(row.status);
+          if (row.status === "completed") {
+            setTimeout(() => {
+              router.push("/thank-you");
+            }, 1200);
+          }
+        },
+      )
       .subscribe();
 
     return () => {
       isActive = false;
       supabase.removeChannel(channel);
     };
-  }, [chatThreadId, lead, router]);
+  }, [chatThreadId, router]);
 
   const lastAssistantMessage = useMemo(() => {
     return [...messages].reverse().find((message) => message.role === "assistant");
@@ -150,14 +168,26 @@ export function ChatWindow() {
     }
 
     const outgoing = inputValue.trim();
+    const optimisticId = `optimistic-${Date.now()}`;
     setInputValue("");
     setIsSubmitting(true);
+    applyIncomingMessage({
+      id: optimisticId,
+      role: "user",
+      content: outgoing,
+      sentAt: new Date().toISOString(),
+      metadata: {
+        optimistic: true,
+      },
+    });
 
     try {
       const result = await sendPublicChatMessage(chatThreadId, outgoing);
-      const refreshed = await getPublicThreadMessages(chatThreadId);
-      setThreadStatus(refreshed.thread.status);
-      setMessages(refreshed.messages.map(normalizeMessage));
+      if (result.userMessage) {
+        const serverUserMessage = normalizeMessage(result.userMessage as any);
+        setMessages((previous) => previous.filter((message) => message.id !== optimisticId));
+        applyIncomingMessage(serverUserMessage);
+      }
       if (result.conversationComplete) {
         setThreadStatus("completed");
         setTimeout(() => {
@@ -165,6 +195,7 @@ export function ChatWindow() {
         }, 1200);
       }
     } catch (_error) {
+      setMessages((previous) => previous.filter((message) => message.id !== optimisticId));
       setInputValue(outgoing);
     } finally {
       setIsSubmitting(false);
@@ -192,10 +223,6 @@ export function ChatWindow() {
       setIsSubmitting(false);
     }
   };
-
-  if (!lead) {
-    return null;
-  }
 
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto bg-gray-50 border-x border-gray-100 shadow-[0_0_50px_rgba(0,0,0,0.03)]">

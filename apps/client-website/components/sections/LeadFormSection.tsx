@@ -16,7 +16,14 @@ export function LeadFormSection() {
   const handleSubmit = async (data: LeadFormValues) => {
     setIsLoading(true);
     try {
-      const result = await createPublicLead(data as Parameters<typeof createPublicLead>[0]);
+      const normalizedData = {
+        ...data,
+        preferredLanguage:
+          data.preferredLanguage === "other"
+            ? data.preferredLanguageOther?.trim() || "other"
+            : data.preferredLanguage,
+      };
+      const result = await createPublicLead(normalizedData as Parameters<typeof createPublicLead>[0]);
       setSession({
         lead: {
           id: result.lead.id,
@@ -28,9 +35,8 @@ export function LeadFormSection() {
           mobileNumber: result.lead.mobileNumberRaw,
           email: result.lead.email ?? undefined,
           address: result.lead.address ?? undefined,
-          preferredLanguage: result.lead.preferredLanguage ?? undefined,
+          preferredLanguage: normalizedData.preferredLanguage ?? result.lead.preferredLanguage ?? undefined,
           preferredContactMethod: result.lead.preferredContactMethod,
-          whatsappConsent: data.whatsappConsent,
         },
         chatThreadId: result.chatThread?.id ?? null,
         callThreadId: result.callThread?.id ?? null,
@@ -41,7 +47,7 @@ export function LeadFormSection() {
       if (result.callThread) {
         router.push("/voice");
       } else {
-        router.push("/chat");
+        router.push(`/chat/${result.chatThread?.id}`);
       }
     } catch (error) {
       toast.error("Failed to submit. Please try again.");

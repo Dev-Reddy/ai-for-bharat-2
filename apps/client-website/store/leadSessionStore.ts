@@ -14,7 +14,6 @@ export interface LeadData {
   city?: string;
   preferredLanguage?: string;
   preferredContactMethod?: "chat_now" | "call_under_5_min";
-  whatsappConsent?: boolean;
 }
 
 export interface LeadSession {

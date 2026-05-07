@@ -31,9 +31,7 @@ export default function ThankYouPage() {
         </h1>
         
         <p className="text-[#475569] text-lg leading-relaxed mb-8">
-          Your profile is being reviewed. We will follow up with you shortly
-          {lead.whatsappConsent ? " via WhatsApp " : " via email "}
-          with the next steps.
+          Your profile is being reviewed. We will follow up with you shortly with the next steps.
         </p>
 
         <div className="pt-8 border-t border-gray-100">
