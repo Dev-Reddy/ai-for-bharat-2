@@ -82,7 +82,6 @@ export const createPublicLead = async (data: LeadData) => {
       address: data.address || "",
       preferredLanguage: data.preferredLanguage || "english",
       preferredContactMethod: data.preferredContactMethod || "chat_now",
-      whatsappConsent: Boolean(data.whatsappConsent),
     }),
   });
 
