@@ -318,32 +318,111 @@ export const adminApi = {
   },
 
   async getConversations(params: any = {}) {
-    await delay(400);
-    return { success: true, data: memoryConversations, pagination: { page: 1, limit: 20, total: memoryConversations.length, totalPages: 1 } };
-  },
+    const leads = await apiRequest("/leads", { method: "GET" });
+    const leadRows = Array.isArray(leads) ? leads : [];
+    const details = await Promise.all(
+      leadRows.slice(0, 50).map(async (lead: any) => {
+        try {
+          return await apiRequest(`/leads/${lead.id}`, { method: "GET" });
+        } catch {
+          return null;
+        }
+      }),
+    );
 
-  async getConversationDetail(conversationId: string) {
-    await delay(400);
-    const conv = memoryConversations.find(c => c.id === conversationId);
-    if (!conv) throw new Error("Conversation not found");
+    const conversations = details
+      .filter(Boolean)
+      .flatMap((detail: any) => {
+        const items: any[] = [];
+        if (detail?.latestChatThread) {
+          items.push({
+            id: detail.latestChatThread.id,
+            leadId: detail.lead.id,
+            leadName: detail.lead.name,
+            channel: "chat",
+            language:
+              detail.latestScore?.detectedLanguage ??
+              detail.lead.preferredLanguage ??
+              "unknown",
+            status: detail.latestChatThread.status,
+            durationSeconds: detail.latestScore?.durationSeconds ?? 0,
+            classification:
+              detail.latestScore?.classification ??
+              detail.lead.finalInterestScore ??
+              "cold",
+            score: Math.round(detail.latestScore?.totalScore ?? 0),
+            startedAt: detail.latestChatThread.startedAt,
+          });
+        }
+        if (detail?.latestCallThread) {
+          items.push({
+            id: detail.latestCallThread.id,
+            leadId: detail.lead.id,
+            leadName: detail.lead.name,
+            channel: "voice",
+            language:
+              detail.latestScore?.detectedLanguage ??
+              detail.lead.preferredLanguage ??
+              "unknown",
+            status: detail.latestCallThread.status,
+            durationSeconds: detail.latestCallThread.durationSeconds ?? detail.latestScore?.durationSeconds ?? 0,
+            classification:
+              detail.latestScore?.classification ??
+              detail.lead.finalInterestScore ??
+              "cold",
+            score: Math.round(detail.latestScore?.totalScore ?? 0),
+            startedAt: detail.latestCallThread.startedAt ?? detail.latestCallThread.requestedAt,
+          });
+        }
+        return items;
+      })
+      .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime());
 
     return {
       success: true,
-      data: {
-        ...conv,
-        aiSummary: "The lead was very interested in the onboarding process and requested more details.",
-        keyObjection: "Found another broker with lower fees",
-        nextAction: "Send competitive fee comparison via WhatsApp",
-        sentiment: "positive",
-        messages: [
-          { role: 'assistant', content: 'Hi there! How can I help you today?', timestamp: new Date(Date.now() - 600000).toISOString() },
-          { role: 'user', content: 'I am looking for a new broker, but I heard your fees are high.', timestamp: new Date(Date.now() - 500000).toISOString() },
-          { role: 'assistant', content: 'We actually have zero account opening fees and provide daily payouts. Would you like the full fee breakdown?', timestamp: new Date(Date.now() - 400000).toISOString() },
-          { role: 'user', content: 'Yes please. Send it via WhatsApp.', timestamp: new Date(Date.now() - 300000).toISOString() },
-          { role: 'assistant', content: 'Sure, I will have a relationship manager send that to you right away.', timestamp: new Date(Date.now() - 200000).toISOString() }
-        ]
-      }
+      data: conversations,
+      pagination: { page: 1, limit: 20, total: conversations.length, totalPages: 1 },
     };
+  },
+
+  async getConversationDetail(conversationId: string) {
+    const leads = await apiRequest("/leads", { method: "GET" });
+    const leadRows = Array.isArray(leads) ? leads : [];
+    for (const lead of leadRows) {
+      const detail = await apiRequest(`/leads/${lead.id}`, { method: "GET" });
+      if (detail?.latestChatThread?.id === conversationId || detail?.latestCallThread?.id === conversationId) {
+        const isCall = detail?.latestCallThread?.id === conversationId;
+        return {
+          success: true,
+          data: {
+            id: conversationId,
+            leadId: detail.lead.id,
+            leadName: detail.lead.name,
+            channel: isCall ? "voice" : "chat",
+            language: detail.latestScore?.detectedLanguage ?? detail.lead.preferredLanguage ?? "unknown",
+            status: isCall ? detail.latestCallThread.status : detail.latestChatThread.status,
+            durationSeconds: detail.latestScore?.durationSeconds ?? detail.latestCallThread?.durationSeconds ?? 0,
+            classification: detail.latestScore?.classification ?? detail.lead.finalInterestScore ?? "cold",
+            score: Math.round(detail.latestScore?.totalScore ?? 0),
+            startedAt: isCall
+              ? (detail.latestCallThread.startedAt ?? detail.latestCallThread.requestedAt)
+              : detail.latestChatThread.startedAt,
+            aiSummary: detail.latestScore?.overallSummary ?? detail.lead.overallSummary ?? "",
+            keyObjection: detail.latestScore?.objections?.[0]?.type ?? "No objection captured",
+            nextAction: detail.latestScore?.recommendedNextAction ?? detail.lead.recommendedNextAction ?? "",
+            sentiment: detail.latestScore?.classification === "hot" ? "positive" : detail.latestScore?.classification === "warm" ? "neutral" : "hesitant",
+            messages: (detail.messages ?? []).map((message: any) => ({
+              role: message.senderType === "ai" ? "assistant" : "user",
+              content: message.messageText,
+              timestamp: message.sentAt,
+            })),
+            transcript: detail.latestCallThread?.transcript ?? null,
+          },
+        };
+      }
+    }
+
+    throw new Error("Conversation not found");
   },
 
   async getCampaigns(params: any = {}) {
