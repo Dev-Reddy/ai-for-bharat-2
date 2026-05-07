@@ -100,6 +100,9 @@ const adminConversationsRoute = createRoute({
 const adminAnalyticsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "analytics",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/dashboard" });
+  },
   component: AnalyticsPage,
 });
 
@@ -130,6 +133,9 @@ const adminKnowledgeRoute = createRoute({
 const adminFeedbackRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "feedback",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/dashboard" });
+  },
   component: FeedbackPage,
 });
 

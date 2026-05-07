@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "../../../services/adminApi";
 import { Badge } from "@/components/ui/badge";
@@ -12,14 +12,23 @@ import { toast } from "sonner";
 
 export default function FollowUpsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [classificationFilter, setClassificationFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc'|'desc'}>({ key: 'createdAt', direction: 'desc' });
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [page, setPage] = useState(1);
 
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["followups"],
-    queryFn: () => adminApi.getFollowUps(),
+    queryKey: ["followups", statusFilter, classificationFilter, sortConfig, page],
+    queryFn: () => adminApi.getFollowUps({
+      page,
+      pageSize: 20,
+      status: statusFilter,
+      classification: classificationFilter,
+      sortBy: sortConfig.key,
+      sortDirection: sortConfig.direction,
+    }),
   });
 
   const syncMutation = useMutation({
@@ -39,38 +48,15 @@ export default function FollowUpsPage() {
     }
   });
 
-  const followups = data?.data || [];
-
-  const filteredAndSortedFollowups = useMemo(() => {
-    let result = [...followups];
-
-    // Simulate history metadata
-    result = result.map(f => ({
-      ...f,
-      historyCount: Math.floor(Math.random() * 5) + 1,
-      lastActionTime: new Date(new Date(f.createdAt).getTime() - Math.random() * 10000000).toISOString()
-    }));
-
-    if (statusFilter !== "all") {
-      result = result.filter(f => f.status === statusFilter);
-    }
-
-    result.sort((a, b) => {
-      let aVal: any = sortConfig.key === 'leadName' ? a.lead.name : a[sortConfig.key as keyof typeof a];
-      let bVal: any = sortConfig.key === 'leadName' ? b.lead.name : b[sortConfig.key as keyof typeof b];
-      
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [followups, statusFilter, sortConfig]);
+  const followups = (data?.data || []).map((f: any) => ({
+    ...f,
+    historyCount: 1,
+    lastActionTime: f.updatedAt ?? f.createdAt,
+  }));
+  const pagination = data?.pagination;
 
   const handleSort = (key: string) => {
+    setPage(1);
     setSortConfig(prev => ({
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
@@ -82,12 +68,19 @@ export default function FollowUpsPage() {
     return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4 text-zinc-900 dark:text-zinc-100" /> : <ArrowDown className="ml-2 h-4 w-4 text-zinc-900 dark:text-zinc-100" />;
   };
 
+  const statusLabel = statusFilter === "all"
+    ? "Status: All"
+    : `Status: ${statusFilter[0].toUpperCase()}${statusFilter.slice(1)}`;
+  const classificationLabel = classificationFilter === "all"
+    ? "Classification: All"
+    : `Classification: ${classificationFilter[0].toUpperCase()}${classificationFilter.slice(1)}`;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Follow Ups</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Ready-to-send messages for warm leads.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Ready-to-send messages for hot and warm leads.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -105,13 +98,24 @@ export default function FollowUpsPage() {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px] bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
-              <SelectValue placeholder="All Statuses" />
+              <SelectValue>{statusLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="all">Status: All</SelectItem>
               <SelectItem value="ready">Ready</SelectItem>
               <SelectItem value="opened">Opened</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={classificationFilter} onValueChange={setClassificationFilter}>
+            <SelectTrigger className="w-[180px] bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
+              <SelectValue>{classificationLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Classification: All</SelectItem>
+              <SelectItem value="hot">Hot</SelectItem>
+              <SelectItem value="warm">Warm</SelectItem>
+              <SelectItem value="cold">Cold</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -138,10 +142,10 @@ export default function FollowUpsPage() {
           <TableBody>
             {isLoading ? (
                <TableRow><TableCell colSpan={6} className="h-32 text-center text-zinc-500"><span className="animate-pulse">Loading...</span></TableCell></TableRow>
-            ) : filteredAndSortedFollowups.length === 0 ? (
+            ) : followups.length === 0 ? (
                <TableRow><TableCell colSpan={6} className="h-32 text-center text-zinc-500">No follow ups found.</TableCell></TableRow>
             ) : (
-              filteredAndSortedFollowups.map((f: any) => (
+              followups.map((f: any) => (
                 <TableRow key={f.id} className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800/50">
                   <TableCell>
                     <Link to={`/admin/leads/${f.lead.id}`} className="font-medium text-gray-900 dark:text-gray-200 hover:underline transition-colors">
@@ -182,6 +186,18 @@ export default function FollowUpsPage() {
                             WhatsApp
                         </a>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const nextMessage = window.prompt("Edit first message", f.message);
+                          if (!nextMessage || nextMessage === f.message) return;
+                          await adminApi.updateFollowUpMessage(f.id, nextMessage);
+                          queryClient.invalidateQueries({ queryKey: ["followups"] });
+                        }}
+                      >
+                        Edit Message
+                      </Button>
                       {f.status === 'ready' && (
                         <Button 
                           size="sm"
@@ -198,6 +214,20 @@ export default function FollowUpsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+        <div>
+          Showing page {pagination?.page ?? 1} of {pagination?.totalPages ?? 1} • {pagination?.total ?? followups.length} follow-ups
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={(pagination?.page ?? 1) <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" disabled={(pagination?.page ?? 1) >= (pagination?.totalPages ?? 1)} onClick={() => setPage((current) => current + 1)}>
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

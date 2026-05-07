@@ -42,6 +42,15 @@ export default function DashboardPage() {
   const funnel = data?.data?.funnel || [];
   const languageStats = data?.data?.languageStats || [];
   const objectionStats = data?.data?.objectionStats || [];
+  const scoreBreakdown = data?.data?.scoreBreakdown || [];
+  const scoreDimensionAverages = data?.data?.scoreDimensionAverages || {};
+  const rmLoad = data?.data?.rmLoad || [];
+  const periodLabelMap: Record<typeof period, string> = {
+    daily: "Period: Today",
+    weekly: "Period: This Week",
+    monthly: "Period: This Month",
+    all_time: "Period: All Time",
+  };
 
   const kpis = [
     { label: "Total Leads", value: overview.totalLeads, icon: Users, color: "text-gray-500", trend: "+12%", onClick: () => navigate("/admin/leads") },
@@ -90,13 +99,13 @@ export default function DashboardPage() {
         </div>
         <Select value={period} onValueChange={(val: any) => setPeriod(val)}>
           <SelectTrigger className="w-[180px] bg-background">
-            <SelectValue placeholder="Select Period" />
+            <SelectValue>{periodLabelMap[period]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="daily">Today</SelectItem>
-            <SelectItem value="weekly">This Week</SelectItem>
-            <SelectItem value="monthly">This Month</SelectItem>
-            <SelectItem value="all_time">All Time</SelectItem>
+            <SelectItem value="daily">Period: Today</SelectItem>
+            <SelectItem value="weekly">Period: This Week</SelectItem>
+            <SelectItem value="monthly">Period: This Month</SelectItem>
+            <SelectItem value="all_time">Period: All Time</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -228,7 +237,64 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Score Distribution</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={scoreBreakdown}>
+                    <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill: axisColor}} />
+                    <YAxis hide />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="count" fill={chartFill} radius={[4, 4, 0, 0]} barSize={46} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Average Score Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-3 gap-4">
+                <div className="rounded-xl border p-4 text-center">
+                  <div className="text-2xl font-bold">{scoreDimensionAverages.interest ?? 0}</div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider">Interest</div>
+                </div>
+                <div className="rounded-xl border p-4 text-center">
+                  <div className="text-2xl font-bold">{scoreDimensionAverages.readiness ?? 0}</div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider">Readiness</div>
+                </div>
+                <div className="rounded-xl border p-4 text-center">
+                  <div className="text-2xl font-bold">{scoreDimensionAverages.network ?? 0}</div>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider">Network</div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">RM Load</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {rmLoad.map((rm: any) => (
+                <div key={rm.id} className="flex items-center justify-between rounded-xl border p-4">
+                  <div>
+                    <div className="font-medium">{rm.name}</div>
+                    <div className="text-xs text-zinc-500">{rm.email}</div>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <div>Assigned: <span className="font-semibold">{rm.assignedLeadCount}</span></div>
+                    <div>Pending: <span className="font-semibold">{rm.pendingTaskCount}</span></div>
+                    <div>Converted: <span className="font-semibold">{rm.convertedCount}</span></div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

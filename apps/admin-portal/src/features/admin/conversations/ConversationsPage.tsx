@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Bot, Clock, MessageSquare, PhoneCall, User } from "lucide-react";
+import { ArrowLeft, Clock, MessageSquare, PhoneCall, User } from "lucide-react";
 import { useNavigate } from "../../../lib/routerCompat";
 import { adminApi } from "../../../services/adminApi";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ export default function ConversationsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["conversations"],
-    queryFn: () => adminApi.getConversations({}),
+    queryFn: () => adminApi.getConversations({ page: 1, pageSize: 100, sortBy: "startedAt", sortDirection: "desc" }),
   });
 
   const conversations = data?.data ?? [];
@@ -139,13 +139,7 @@ export default function ConversationsPage() {
                 </Button>
               </div>
 
-              <div className="bg-gray-50 dark:bg-[#111827] p-4 border-b border-zinc-200 dark:border-zinc-800 grid gap-4 lg:grid-cols-3 text-sm shrink-0">
-                <div className="space-y-1">
-                  <div className="text-gray-900 dark:text-gray-200 font-semibold flex items-center gap-1.5">
-                    <Bot className="w-4 h-4 shrink-0" /> AI Summary
-                  </div>
-                  <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed">{current.aiSummary || "Summary not available."}</p>
-                </div>
+              <div className="bg-gray-50 dark:bg-[#111827] p-4 border-b border-zinc-200 dark:border-zinc-800 grid gap-4 lg:grid-cols-2 text-sm shrink-0">
                 <div className="space-y-1">
                   <div className="text-amber-600 dark:text-amber-500 font-semibold">Key Objection</div>
                   <p className="text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed">{current.keyObjection || "No objection captured"}</p>

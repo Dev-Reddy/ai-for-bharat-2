@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "../../../services/adminApi";
 import { Link, useNavigate, useSearchParams } from "../../../lib/routerCompat";
@@ -49,14 +49,17 @@ const addLeadSchema = z.object({
 export default function LeadsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   
   const classification = searchParams.get("classification") || "all";
   const setClassification = (val: string) => {
+    setPage(1);
     setSearchParams(prev => { prev.set("classification", val); return prev; });
   };
   
   const statusFilter = searchParams.get("status") || "all";
   const setStatusFilter = (val: string) => {
+    setPage(1);
     setSearchParams(prev => { prev.set("status", val); return prev; });
   };
   
@@ -67,8 +70,16 @@ export default function LeadsPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["leads"],
-    queryFn: () => adminApi.getLeads({}),
+    queryKey: ["leads", search, classification, statusFilter, sortConfig, page],
+    queryFn: () => adminApi.getLeads({
+      page,
+      pageSize: 20,
+      search,
+      classification,
+      status: statusFilter,
+      sortBy: sortConfig.key,
+      sortDirection: sortConfig.direction,
+    }),
   });
 
   const addMutation = useMutation({
@@ -139,44 +150,23 @@ export default function LeadsPage() {
     }
   };
 
+  const classificationLabel = classification === "all" ? "Classification: All" : `Classification: ${classification[0].toUpperCase()}${classification.slice(1)}`;
+  const statusLabelMap: Record<string, string> = {
+    all: "Status: All",
+    new: "Status: New",
+    pending_contact: "Status: Pending",
+    conversation_completed: "Status: AI Completed",
+    assigned_to_rm: "Status: Assigned",
+    follow_up_scheduled: "Status: Follow Up",
+    converted: "Status: Converted",
+    closed: "Status: Closed",
+  };
+
   const leads = data?.data || [];
-
-  const filteredAndSortedLeads = useMemo(() => {
-    let result = [...leads];
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(l => 
-        l.name.toLowerCase().includes(q) || 
-        l.phone.includes(q) ||
-        l.city?.toLowerCase().includes(q)
-      );
-    }
-    if (classification !== "all") {
-      result = result.filter(l => l.classification === classification);
-    }
-    if (statusFilter !== "all") {
-      result = result.filter(l => l.status === statusFilter);
-    }
-
-    result.sort((a, b) => {
-      let aVal: any = a[sortConfig.key as keyof Lead];
-      let bVal: any = b[sortConfig.key as keyof Lead];
-      
-      if (sortConfig.key === 'score') {
-        aVal = a.latestScore || 0;
-        bVal = b.latestScore || 0;
-      }
-
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [leads, search, classification, statusFilter, sortConfig]);
+  const pagination = data?.pagination;
 
   const handleSort = (key: keyof Lead | 'score') => {
+    setPage(1);
     setSortConfig(prev => ({
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
@@ -289,16 +279,19 @@ export default function LeadsPage() {
             placeholder="Search name, phone or city..."
             className="pl-8 bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
           />
         </div>
         
         <Select value={classification} onValueChange={setClassification}>
           <SelectTrigger className="w-[160px] bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800">
-            <SelectValue placeholder="All Classifications" />
+            <SelectValue>{classificationLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Classifications</SelectItem>
+            <SelectItem value="all">Classification: All</SelectItem>
             <SelectItem value="hot">Hot</SelectItem>
             <SelectItem value="warm">Warm</SelectItem>
             <SelectItem value="cold">Cold</SelectItem>
@@ -307,10 +300,10 @@ export default function LeadsPage() {
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px] bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue>{statusLabelMap[statusFilter] ?? "Choose Status"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="all">Status: All</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="pending_contact">Pending</SelectItem>
             <SelectItem value="conversation_completed">AI Completed</SelectItem>
@@ -336,6 +329,9 @@ export default function LeadsPage() {
               <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('status')}>
                 <div className="flex items-center">Status <SortIcon column="status" /></div>
               </TableHead>
+              <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('classification')}>
+                <div className="flex items-center">Classification <SortIcon column="classification" /></div>
+              </TableHead>
               <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('score')}>
                 <div className="flex items-center">Score <SortIcon column="score" /></div>
               </TableHead>
@@ -350,18 +346,18 @@ export default function LeadsPage() {
           <TableBody>
             {isLoading ? (
                <TableRow>
-                 <TableCell colSpan={9} className="h-32 text-center text-zinc-500">
+                 <TableCell colSpan={10} className="h-32 text-center text-zinc-500">
                    <span className="animate-pulse">Loading leads...</span>
                  </TableCell>
                </TableRow>
-            ) : filteredAndSortedLeads.length === 0 ? (
+            ) : leads.length === 0 ? (
                <TableRow>
-                 <TableCell colSpan={9} className="h-32 text-center text-zinc-500">
+                 <TableCell colSpan={10} className="h-32 text-center text-zinc-500">
                    No leads found matching your criteria.
                  </TableCell>
                </TableRow>
             ) : (
-              filteredAndSortedLeads.map((lead) => (
+              leads.map((lead) => (
                 <TableRow 
                   key={lead.id} 
                   className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800/50 cursor-pointer"
@@ -381,12 +377,8 @@ export default function LeadsPage() {
                   <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
                     {lead.sourceLabel || "N/A"}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1 items-start">
-                      {getStatusBadge(lead.status)}
-                      {getClassificationBadge(lead.classification)}
-                    </div>
-                  </TableCell>
+                  <TableCell>{getStatusBadge(lead.status)}</TableCell>
+                  <TableCell>{getClassificationBadge(lead.classification)}</TableCell>
                   <TableCell>
                     <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{lead.latestScore}</div>
                   </TableCell>
@@ -435,6 +427,20 @@ export default function LeadsPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
+        <div>
+          Showing page {pagination?.page ?? 1} of {pagination?.totalPages ?? 1} • {pagination?.total ?? leads.length} leads
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={(pagination?.page ?? 1) <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" disabled={(pagination?.page ?? 1) >= (pagination?.totalPages ?? 1)} onClick={() => setPage((current) => current + 1)}>
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

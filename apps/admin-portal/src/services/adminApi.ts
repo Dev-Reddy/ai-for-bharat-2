@@ -43,22 +43,37 @@ async function apiRequest(path: string, init: RequestInit = {}) {
   return payload.data;
 }
 
-function mapLeadFromBackend(raw: any): Lead {
-  const score =
-    typeof raw.interestLevelScore === "number" &&
-    typeof raw.readinessToSignupScore === "number" &&
-    typeof raw.networkSizeScore === "number"
-      ? Math.round(raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore)
-      : 0;
+function buildQueryString(params: Record<string, unknown>) {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "" || value === "all") {
+      continue;
+    }
+    searchParams.set(key, String(value));
+  }
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
 
+function mapLeadFromBackend(raw: any): Lead {
+  const scoreBreakdown = raw.latestScoreBreakdown ?? {};
+  const score =
+    typeof scoreBreakdown.totalScore === "number"
+      ? Math.round(scoreBreakdown.totalScore)
+      : typeof raw.latestScore === "number"
+        ? raw.latestScore
+        : 0;
+
+  const progressStatus = raw.progressStatus ?? "";
+  const contactStatus = raw.contactStatus ?? "";
   const status =
-    raw.progressStatus === "assigned"
+    progressStatus === "assigned"
       ? "assigned_to_rm"
-      : raw.progressStatus === "converted"
+      : progressStatus === "converted"
         ? "converted"
-        : raw.contactStatus === "pending"
+        : contactStatus === "pending"
           ? "pending_contact"
-      : raw.preferredContactMethod === "call_under_5_min"
+      : raw.preferredContactMethod === "call_under_5_min" || raw.hasAnyCall
             ? "follow_up_scheduled"
             : "conversation_completed";
 
@@ -86,7 +101,7 @@ function mapLeadFromBackend(raw: any): Lead {
     preferredChannel:
       raw.preferredContactMethod === "call_under_5_min" ? "voice" : "chat",
     status,
-    classification: raw.finalInterestScore ?? "cold",
+    classification: raw.finalInterestScore ?? scoreBreakdown.classification ?? "cold",
     latestScore: score,
     latestSummary: raw.overallSummary ?? undefined,
     latestNextAction: raw.recommendedNextAction ?? undefined,
@@ -97,6 +112,12 @@ function mapLeadFromBackend(raw: any): Lead {
           email: raw.assignedRm.email,
         }
       : undefined,
+    hasAnyCall: Boolean(raw.hasAnyCall),
+    canStartCall: Boolean(raw.canStartCall ?? !raw.hasAnyCall),
+    leadWaMeLink: raw.leadWaMeLink ?? null,
+    latestTranscriptSource: raw.latestTranscriptSource ?? null,
+    latestTranscript: raw.latestTranscript ?? null,
+    latestScoreBreakdown: scoreBreakdown,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   };
@@ -110,25 +131,23 @@ let memoryCampaigns = [...MOCK_CAMPAIGNS];
 let memoryFollowUps = [...MOCK_FOLLOWUPS];
 let memoryKnowledgeDocs = [...MOCK_KNOWLEDGE_DOCS];
 let memoryFeedback = [...MOCK_FEEDBACK];
-let memorySettings = {
-  clientName: "FinPartner Pro",
-  workspaceId: "client_1",
-  supportedLanguages: "English, Hindi, Hinglish",
-  scoringHot: "70",
-  scoringWarm: "40",
-  scoringCold: "0",
-  waTemplate: "Hi {{lead.name}}, thanks for speaking with us. Here is the onboarding link..."
+type PortalSettings = {
+  websiteChatGreetingTemplate?: string;
+  websiteChatGreetingTemplateHi?: string;
+  whatsappFollowUpTemplate?: string;
 };
 
 export const adminApi = {
   getSettings: async () => {
-    await delay(100);
-    return { data: { ...memorySettings } };
+    const data = await apiRequest("/portal-settings", { method: "GET" });
+    return { data };
   },
-  updateSettings: async (newSettings: Partial<typeof memorySettings>) => {
-    await delay(100);
-    memorySettings = { ...memorySettings, ...newSettings };
-    return { data: { ...memorySettings }, message: "Settings updated successfully" };
+  updateSettings: async (newSettings: PortalSettings) => {
+    const data = await apiRequest("/portal-settings", {
+      method: "PATCH",
+      body: JSON.stringify(newSettings),
+    });
+    return { data, message: "Settings updated successfully" };
   },
   async loginAdmin() {
     throw new Error("Use authApi.login instead.");
@@ -160,49 +179,56 @@ export const adminApi = {
         classificationBreakdown,
         languageStats: languageBreakdown,
         objectionStats: objectionBreakdown,
+        scoreBreakdown: overview.scoreBreakdown ?? [],
+        scoreDimensionAverages: overview.scoreDimensionAverages ?? {},
+        leadScoreRows: overview.leadScoreRows ?? [],
+        rmLoad: overview.rmLoad ?? [],
       },
     };
   },
 
   async getLeads(params: any) {
-    const data = await apiRequest("/leads", { method: "GET" });
-    let leads = (Array.isArray(data) ? data : []).map(mapLeadFromBackend);
-    if (params.search) {
-      leads = leads.filter(
-        (l) =>
-          l.name.toLowerCase().includes(params.search.toLowerCase()) ||
-          l.phone.includes(params.search),
-      );
-    }
-    if (params.classification && params.classification !== "all") {
-      leads = leads.filter((l) => l.classification === params.classification);
-    }
+    const response = await apiRequest(`/leads${buildQueryString(params)}`, { method: "GET" });
+    const leads = (Array.isArray(response.data) ? response.data : []).map(mapLeadFromBackend);
     return {
       success: true,
       data: leads,
-      pagination: {
-        page: 1, limit: 20, total: leads.length, totalPages: 1,
-      },
+      pagination: response.pagination,
     };
   },
 
   async getLeadDetail(leadId: string) {
     const data = await apiRequest(`/leads/${leadId}`, { method: "GET" });
     const lead = mapLeadFromBackend(data.lead);
-    const messages = (data.messages ?? []).map((message: any) => ({
-      id: message.id,
-      role: message.senderType === "ai" ? "assistant" : "user",
-      content: message.messageText,
-      sequenceNo: 1,
-      timestamp: message.sentAt,
-    }));
+    const messages = data.latestTranscriptSource === "call_thread"
+      ? String(data.latestTranscript ?? "")
+        .split("\n")
+        .filter(Boolean)
+        .map((line: string, index: number) => {
+          const [speaker, ...rest] = line.split(":");
+          const content = rest.join(":").trim();
+          return {
+            id: `${leadId}-call-${index}`,
+            role: speaker.toLowerCase().includes("ai") ? "assistant" : "user",
+            content,
+            sequenceNo: index + 1,
+            timestamp: data.latestCallThread?.startedAt ?? data.latestCallThread?.requestedAt ?? lead.createdAt,
+          };
+        })
+      : (data.messages ?? []).map((message: any, index: number) => ({
+          id: message.id,
+          role: message.senderType === "ai" ? "assistant" : "user",
+          content: message.messageText,
+          sequenceNo: index + 1,
+          timestamp: message.sentAt,
+        }));
     return {
       success: true,
       data: {
         lead,
         campaign: { id: "campaign_1", name: "Rupeezy AP Campaign" },
         assignedRm: lead.assignedRm || null,
-        latestConversation: data.latestChatThread
+        latestConversation: data.latestTranscriptSource !== "call_thread" && data.latestChatThread
           ? {
               id: data.latestChatThread.id,
               channel: "chat",
@@ -227,9 +253,9 @@ export const adminApi = {
               id: data.latestScore.id,
               classification: data.latestScore.classification,
               totalScore: Math.round(data.latestScore.totalScore),
-              readinessScore: Math.round(data.latestScore.readinessToSignupScore),
-              engagementScore: Math.round(data.latestScore.interestLevelScore),
-              fitScore: Math.round(data.latestScore.networkSizeScore),
+              readinessToSignupScore: Math.round(data.latestScore.readinessToSignupScore),
+              interestLevelScore: Math.round(data.latestScore.interestLevelScore),
+              networkSizeScore: Math.round(data.latestScore.networkSizeScore),
               reason: data.latestScore.reason,
               detectedLanguage: data.latestScore.detectedLanguage,
               recommendedNextAction:
@@ -240,9 +266,11 @@ export const adminApi = {
               suggestedOpeningLine: data.latestScore.suggestedOpeningLine ?? "",
               handoffSummary: data.latestScore.handoffSummary ?? "",
             }
-          : null,
+          : lead.latestScoreBreakdown ?? null,
         rmTask: data.latestRmTask ?? null,
         followUp: data.latestFollowUp ?? null,
+        latestTranscriptSource: data.latestTranscriptSource,
+        latestTranscript: data.latestTranscript,
       },
     };
   },
@@ -341,111 +369,23 @@ export const adminApi = {
   },
 
   async getConversations(params: any = {}) {
-    const leads = await apiRequest("/leads", { method: "GET" });
-    const leadRows = Array.isArray(leads) ? leads : [];
-    const details = await Promise.all(
-      leadRows.slice(0, 50).map(async (lead: any) => {
-        try {
-          return await apiRequest(`/leads/${lead.id}`, { method: "GET" });
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    const conversations = details
-      .filter(Boolean)
-      .flatMap((detail: any) => {
-        const items: any[] = [];
-        if (detail?.latestChatThread) {
-          items.push({
-            id: detail.latestChatThread.id,
-            leadId: detail.lead.id,
-            leadName: detail.lead.name,
-            channel: "chat",
-            language:
-              detail.latestScore?.detectedLanguage ??
-              detail.lead.preferredLanguage ??
-              "unknown",
-            status: detail.latestChatThread.status,
-            durationSeconds: detail.latestScore?.durationSeconds ?? 0,
-            classification:
-              detail.latestScore?.classification ??
-              detail.lead.finalInterestScore ??
-              "cold",
-            score: Math.round(detail.latestScore?.totalScore ?? 0),
-            startedAt: detail.latestChatThread.startedAt,
-          });
-        }
-        if (detail?.latestCallThread) {
-          items.push({
-            id: detail.latestCallThread.id,
-            leadId: detail.lead.id,
-            leadName: detail.lead.name,
-            channel: "voice",
-            language:
-              detail.latestScore?.detectedLanguage ??
-              detail.lead.preferredLanguage ??
-              "unknown",
-            status: detail.latestCallThread.status,
-            durationSeconds: detail.latestCallThread.durationSeconds ?? detail.latestScore?.durationSeconds ?? 0,
-            classification:
-              detail.latestScore?.classification ??
-              detail.lead.finalInterestScore ??
-              "cold",
-            score: Math.round(detail.latestScore?.totalScore ?? 0),
-            startedAt: detail.latestCallThread.startedAt ?? detail.latestCallThread.requestedAt,
-          });
-        }
-        return items;
-      })
-      .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime());
-
+    const response = await apiRequest(`/conversations${buildQueryString(params)}`, { method: "GET" });
     return {
       success: true,
-      data: conversations,
-      pagination: { page: 1, limit: 20, total: conversations.length, totalPages: 1 },
+      data: response.data ?? [],
+      pagination: response.pagination,
     };
   },
 
   async getConversationDetail(conversationId: string) {
-    const leads = await apiRequest("/leads", { method: "GET" });
-    const leadRows = Array.isArray(leads) ? leads : [];
-    for (const lead of leadRows) {
-      const detail = await apiRequest(`/leads/${lead.id}`, { method: "GET" });
-      if (detail?.latestChatThread?.id === conversationId || detail?.latestCallThread?.id === conversationId) {
-        const isCall = detail?.latestCallThread?.id === conversationId;
-        return {
-          success: true,
-          data: {
-            id: conversationId,
-            leadId: detail.lead.id,
-            leadName: detail.lead.name,
-            channel: isCall ? "voice" : "chat",
-            language: detail.latestScore?.detectedLanguage ?? detail.lead.preferredLanguage ?? "unknown",
-            status: isCall ? detail.latestCallThread.status : detail.latestChatThread.status,
-            durationSeconds: detail.latestScore?.durationSeconds ?? detail.latestCallThread?.durationSeconds ?? 0,
-            classification: detail.latestScore?.classification ?? detail.lead.finalInterestScore ?? "cold",
-            score: Math.round(detail.latestScore?.totalScore ?? 0),
-            startedAt: isCall
-              ? (detail.latestCallThread.startedAt ?? detail.latestCallThread.requestedAt)
-              : detail.latestChatThread.startedAt,
-            aiSummary: detail.latestScore?.overallSummary ?? detail.lead.overallSummary ?? "",
-            keyObjection: detail.latestScore?.objections?.[0]?.type ?? "No objection captured",
-            nextAction: detail.latestScore?.recommendedNextAction ?? detail.lead.recommendedNextAction ?? "",
-            sentiment: detail.latestScore?.classification === "hot" ? "positive" : detail.latestScore?.classification === "warm" ? "neutral" : "hesitant",
-            messages: (detail.messages ?? []).map((message: any) => ({
-              role: message.senderType === "ai" ? "assistant" : "user",
-              content: message.messageText,
-              timestamp: message.sentAt,
-            })),
-            transcript: detail.latestCallThread?.transcript ?? null,
-          },
-        };
-      }
-    }
-
-    throw new Error("Conversation not found");
+    const data = await apiRequest(`/conversations/${conversationId}`, { method: "GET" });
+    return {
+      success: true,
+      data: {
+        ...data,
+        sentiment: data.classification === "hot" ? "positive" : data.classification === "warm" ? "neutral" : "hesitant",
+      },
+    };
   },
 
   async getCampaigns(params: any = {}) {
@@ -460,17 +400,11 @@ export const adminApi = {
   },
 
   async getFollowUps(params: any = {}) {
-    const [data, leadsData] = await Promise.all([
-      apiRequest("/follow-ups", { method: "GET" }),
-      apiRequest("/leads", { method: "GET" }),
-    ]);
-    const leads = new Map(
-      (Array.isArray(leadsData) ? leadsData : []).map((lead: any) => [lead.id, mapLeadFromBackend(lead)]),
-    );
+    const response = await apiRequest(`/follow-ups${buildQueryString(params)}`, { method: "GET" });
     return {
       success: true,
-      data: (Array.isArray(data) ? data : []).map((item: any) => {
-        const lead = leads.get(item.leadId);
+      data: (Array.isArray(response.data) ? response.data : []).map((item: any) => {
+        const lead = item.lead ?? null;
         return {
           ...item,
           lead: lead
@@ -488,7 +422,7 @@ export const adminApi = {
               },
         };
       }),
-      pagination: { page: 1, limit: 20, total: Array.isArray(data) ? data.length : 0, totalPages: 1 },
+      pagination: response.pagination,
     };
   },
 
@@ -498,19 +432,27 @@ export const adminApi = {
   },
 
   async updateFollowUpStatus(followUpId: string, status: string) {
-    const data = await apiRequest(`/follow-ups/${followUpId}/open-link`, {
-      method: "POST",
+    const data = await apiRequest(`/follow-ups/${followUpId}`, {
+      method: "PATCH",
       body: JSON.stringify({ status }),
     });
     return { success: true, data };
   },
 
+  async updateFollowUpMessage(followUpId: string, message: string) {
+    const data = await apiRequest(`/follow-ups/${followUpId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ message }),
+    });
+    return { success: true, data };
+  },
+
   async getKnowledgeDocuments(params: any = {}) {
-    const data = await apiRequest("/knowledge-documents", { method: "GET" });
+    const response = await apiRequest(`/knowledge-documents${buildQueryString(params)}`, { method: "GET" });
     return {
       success: true,
-      data: data as any[],
-      pagination: { page: 1, limit: 20, total: Array.isArray(data) ? data.length : 0, totalPages: 1 },
+      data: response.data as any[],
+      pagination: response.pagination,
     };
   },
   

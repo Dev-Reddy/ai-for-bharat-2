@@ -45,7 +45,10 @@ export default function LeadDetailPage() {
   });
 
   const followUpMutation = useMutation({
-    mutationFn: (followUpId: string) => adminApi.updateFollowUpStatus(followUpId, "opened"),
+    mutationFn: async (followUpId: string) => {
+      const response = await adminApi.updateFollowUpStatus(followUpId, "opened");
+      return response;
+    },
     onSuccess: (response) => {
       const link = response?.data?.waMeLink;
       if (link) {
@@ -65,7 +68,7 @@ export default function LeadDetailPage() {
     return <div className="p-6 text-sm text-red-500">Unable to load lead.</div>;
   }
 
-  const { lead, latestConversation, messages, score, rmTask, followUp } = payload;
+  const { lead, latestConversation, messages, score, rmTask, followUp, latestTranscriptSource } = payload;
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -88,18 +91,20 @@ export default function LeadDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => runAnalysisMutation.mutate()} disabled={runAnalysisMutation.isPending}>
             <RefreshCcw className="mr-2 h-4 w-4" />
-            {runAnalysisMutation.isPending ? "Running..." : "Rerun Analysis"}
+            {runAnalysisMutation.isPending ? "Running..." : "Analyze Again"}
           </Button>
+          {lead.canStartCall ? (
           <Button variant="outline" onClick={() => scheduleCallMutation.mutate()} disabled={scheduleCallMutation.isPending}>
             <PhoneCall className="mr-2 h-4 w-4" />
-            {scheduleCallMutation.isPending ? "Scheduling..." : "Schedule Call"}
+            {scheduleCallMutation.isPending ? "Calling..." : "Call now"}
           </Button>
-          {followUp?.id && followUp?.waMeLink && (
-            <Button onClick={() => followUpMutation.mutate(followUp.id)} disabled={followUpMutation.isPending}>
+          ) : null}
+          {(followUp?.id && followUp?.waMeLink) || lead.leadWaMeLink ? (
+            <Button onClick={() => followUp?.id ? followUpMutation.mutate(followUp.id) : window.open(lead.leadWaMeLink!, "_blank", "noopener,noreferrer")} disabled={followUpMutation.isPending}>
               <MessageCircle className="mr-2 h-4 w-4" />
               Open WhatsApp
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -107,15 +112,12 @@ export default function LeadDetailPage() {
         <div className="space-y-6">
           <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
             <CardHeader>
-              <CardTitle>Transcript Summary</CardTitle>
+              <CardTitle>Lead Analysis</CardTitle>
               <CardDescription>
-                {latestConversation?.channel === "voice" ? "Voice call transcript" : "Chat transcript"} analyzed for lead qualification.
+                {latestTranscriptSource === "call_thread" ? "Voice call transcript" : "Chat transcript"} analyzed for lead qualification.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-[#0B0F14]">
-                <p className="text-sm leading-6 text-zinc-700 dark:text-zinc-300">{lead.latestSummary || score?.reason || "Analysis pending."}</p>
-              </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                   <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Detected Language</div>
@@ -126,6 +128,7 @@ export default function LeadDetailPage() {
                   <div className="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">{score?.recommendedNextAction || lead.latestNextAction || "Review lead manually"}</div>
                 </div>
               </div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-300">{score?.reason || "Analysis pending."}</div>
             </CardContent>
           </Card>
 
@@ -172,15 +175,15 @@ export default function LeadDetailPage() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-800">
-                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.engagementScore ?? lead.latestScore ?? 0}</div>
+                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.interestLevelScore ?? lead.latestScoreBreakdown?.interestLevelScore ?? 0}</div>
                   <div className="text-[10px] uppercase tracking-widest text-zinc-500">Interest</div>
                 </div>
                 <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-800">
-                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.readinessScore ?? 0}</div>
+                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.readinessToSignupScore ?? lead.latestScoreBreakdown?.readinessToSignupScore ?? 0}</div>
                   <div className="text-[10px] uppercase tracking-widest text-zinc-500">Readiness</div>
                 </div>
                 <div className="rounded-xl border border-zinc-200 p-3 text-center dark:border-zinc-800">
-                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.fitScore ?? 0}</div>
+                  <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{score?.networkSizeScore ?? lead.latestScoreBreakdown?.networkSizeScore ?? 0}</div>
                   <div className="text-[10px] uppercase tracking-widest text-zinc-500">Network</div>
                 </div>
               </div>

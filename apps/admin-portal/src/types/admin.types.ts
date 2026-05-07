@@ -63,6 +63,12 @@ export interface Lead {
   latestNextAction?: string;
   assignedRm?: Partial<User>;
   campaign?: { id: string; name: string };
+  hasAnyCall?: boolean;
+  canStartCall?: boolean;
+  leadWaMeLink?: string | null;
+  latestTranscriptSource?: "chat_thread" | "call_thread" | null;
+  latestTranscript?: string | null;
+  latestScoreBreakdown?: Partial<LeadScore> | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   MessageSquare,
-  BarChart,
   Megaphone,
   Briefcase,
   BookOpen,
@@ -19,7 +18,6 @@ import {
   Moon,
   AlignLeft,
   Bot,
-  MessageCircleQuestion,
   User as UserIcon,
   Sparkles,
   BrainCircuit,
@@ -49,8 +47,6 @@ const navItems = [
   { icon: BookOpen, label: "Knowledge Base", path: "/admin/knowledge" },
   { icon: Sparkles, label: "Analysis Contexts", path: "/admin/analysis-contexts" },
   { icon: BrainCircuit, label: "Knowledge Contexts", path: "/admin/knowledge-contexts" },
-  { icon: MessageCircleQuestion, label: "Feedback", path: "/admin/feedback" },
-  { icon: Bot, label: "Analytics", path: "/admin/analytics" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 

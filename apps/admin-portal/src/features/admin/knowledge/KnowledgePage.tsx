@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "../../../services/adminApi";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { FileText, Plus, ArrowUpDown, ArrowUp, ArrowDown, Trash2, UploadCloud, X } from "lucide-react";
+import { FileText, Plus, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { KnowledgeDocument } from "../../../types/admin.types";
 import {
   Dialog,
@@ -40,8 +40,6 @@ export default function KnowledgePage() {
   const [sortConfig, setSortConfig] = useState<{key: keyof KnowledgeDocument, direction: 'asc'|'desc'}>({ key: 'updatedAt', direction: 'desc' });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<KnowledgeDocument | null>(null);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -55,7 +53,6 @@ export default function KnowledgePage() {
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
       setIsAddOpen(false);
       reset();
-      setUploadedFile(null);
       toast.success("Document added successfully");
     }
   });
@@ -66,7 +63,6 @@ export default function KnowledgePage() {
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
       setEditingDoc(null);
       reset();
-      setUploadedFile(null);
       toast.success("Document updated successfully");
     }
   });
@@ -87,11 +83,10 @@ export default function KnowledgePage() {
   const handleEditClick = (doc: KnowledgeDocument) => {
     reset({ title: doc.title, type: doc.type, content: doc.content || "" });
     setEditingDoc(doc);
-    setUploadedFile(null);
   };
 
   const onSubmit = (data: any) => {
-    const payload = { ...data, sourceFileName: uploadedFile?.name };
+    const payload = { ...data };
     if (editingDoc) {
       updateDocMutation.mutate({ id: editingDoc.id, payload });
     } else {
@@ -137,13 +132,16 @@ export default function KnowledgePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Knowledge Base</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Documents used by AI during chat and scoring. Approved content is synced to Mem0 for retrieval. Vapi upload is still manual in this MVP.</p>
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            Allowed filename types: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code>, <code>.txt</code>. Current MVP note: the pasted text content below is what is actually indexed; there is no separate backend-enforced upload size policy yet.
+          </p>
         </div>
 
         <Dialog open={isAddOpen || !!editingDoc} onOpenChange={(open) => {
-          if(!open) { setIsAddOpen(false); setEditingDoc(null); reset({ title: "", type: "", content: "" }); setUploadedFile(null); }
+          if(!open) { setIsAddOpen(false); setEditingDoc(null); reset({ title: "", type: "", content: "" }); }
           else setIsAddOpen(true);
         }}>
-          <DialogTrigger className="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 h-8 gap-1.5 px-2.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white" onClick={() => { reset({title: "", type: "", content: ""}); setEditingDoc(null); setUploadedFile(null); }}>
+          <DialogTrigger className="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 h-8 gap-1.5 px-2.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white" onClick={() => { reset({title: "", type: "", content: ""}); setEditingDoc(null); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Document
           </DialogTrigger>
@@ -170,52 +168,6 @@ export default function KnowledgePage() {
                   </Select>
                 )} />
                 {errors.type && <p className="text-sm text-red-500">{errors.type.message as string}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">File Name Hint (Optional)</Label>
-                <div 
-                  className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg p-6 flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#0B0F14] hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      setUploadedFile(e.dataTransfer.files[0]);
-                    }
-                  }}
-                >
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    ref={fileInputRef} 
-                    accept=".pdf,.doc,.docx,.txt"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setUploadedFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  {uploadedFile ? (
-                    <div className="flex items-center gap-2 text-sm text-zinc-900 dark:text-zinc-100">
-                      <FileText className="w-5 h-5 text-gray-500" />
-                      <span className="font-medium truncate max-w-[200px]">{uploadedFile.name}</span>
-                      <Button variant="ghost" size="icon" className="w-6 h-6 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700" onClick={(e) => {
-                        e.stopPropagation();
-                        setUploadedFile(null);
-                        if(fileInputRef.current) fileInputRef.current.value = '';
-                      }}>
-                        <X className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <UploadCloud className="w-8 h-8 text-zinc-400 mb-2" />
-                      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Attach a filename reference if useful</p>
-                      <p className="text-xs text-zinc-500 mt-1">The actual retrieval content comes from the text pasted below.</p>
-                    </>
-                  )}
-                </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-zinc-700 dark:text-zinc-300">Content</Label>
@@ -265,7 +217,6 @@ export default function KnowledgePage() {
                     <div className="flex flex-col">
                       <span>{doc.title}</span>
                       {doc.sourceFileName ? <span className="text-xs text-zinc-500 font-normal">{doc.sourceFileName}</span> : null}
-                      {uploadedFile && doc.id === editingDoc?.id ? <span className="text-xs text-emerald-500 font-normal">Ready to upload: {uploadedFile.name}</span> : null}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -1,8 +1,43 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Settings, Sparkles, BrainCircuit } from "lucide-react";
 import { Link } from "../../../lib/routerCompat";
+import { adminApi } from "../../../services/adminApi";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["portal-settings"],
+    queryFn: adminApi.getSettings,
+  });
+  const [templates, setTemplates] = useState({
+    websiteChatGreetingTemplate: "",
+    websiteChatGreetingTemplateHi: "",
+    whatsappFollowUpTemplate: "",
+  });
+
+  useEffect(() => {
+    if (data?.data) {
+      setTemplates({
+        websiteChatGreetingTemplate: data.data.websiteChatGreetingTemplate ?? "",
+        websiteChatGreetingTemplateHi: data.data.websiteChatGreetingTemplateHi ?? "",
+        whatsappFollowUpTemplate: data.data.whatsappFollowUpTemplate ?? "",
+      });
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => adminApi.updateSettings(templates),
+    onSuccess: () => {
+      toast.success("Message templates updated");
+      queryClient.invalidateQueries({ queryKey: ["portal-settings"] });
+    },
+  });
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-5xl">
       <div className="flex flex-col gap-2">
@@ -58,12 +93,30 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
             <Settings className="h-4 w-4 text-zinc-500" />
-            Workspace
+            Message Templates
           </CardTitle>
           <CardDescription>
-            General profile and workspace controls can live here as they are added.
+            Configure the website chat greeting and the WhatsApp first message used in follow-ups.
           </CardDescription>
         </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Website Chat Greeting</div>
+            <Textarea value={templates.websiteChatGreetingTemplate} onChange={(event) => setTemplates((current) => ({ ...current, websiteChatGreetingTemplate: event.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Website Chat Greeting (Hindi / Hinglish)</div>
+            <Textarea value={templates.websiteChatGreetingTemplateHi} onChange={(event) => setTemplates((current) => ({ ...current, websiteChatGreetingTemplateHi: event.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">WhatsApp Follow-up First Message</div>
+            <Textarea value={templates.whatsappFollowUpTemplate} onChange={(event) => setTemplates((current) => ({ ...current, whatsappFollowUpTemplate: event.target.value }))} />
+            <div className="text-xs text-zinc-500">Supported variables: {"{{firstName}}"}, {"{{leadName}}"}, {"{{recommendedNextAction}}"}, {"{{classification}}"}</div>
+          </div>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? "Saving..." : "Save Templates"}
+          </Button>
+        </CardContent>
       </Card>
     </div>
   );
