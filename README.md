@@ -80,7 +80,7 @@ Hosted deployments:
 - `apps/admin-portal`: `https://aifb-admin-portal.vercel.app/`
 - `apps/client-website`: `https://aifb-client-website.vercel.app/`
 - `apps/leados-website`: `https://leados-website.vercel.app/`
-- `apps/rm-portal`: `https://rm-portal-xi.vercel.app/rm/login`
+- `apps/rm-portal`: `https://rm-portal-xi.vercel.app/`
 
 Default local ports:
 
