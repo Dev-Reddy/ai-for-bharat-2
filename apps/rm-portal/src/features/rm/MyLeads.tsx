@@ -248,6 +248,9 @@ export const MyLeads = () => {
               Close
             </button>
           </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            Voice calls in this demo are powered by Twilio. To follow user privacy and consent requirements, calls can only be made to verified tester numbers. To test the voice feature, please contact me at +91 8989119100 and I will add your number as a tester. You can also self host the project with your credentials for full testing.
+          </div>
           <form
             onSubmit={handleSubmit((form: AddLeadForm) => createLeadMutation.mutate(form))}
             className="grid grid-cols-1 md:grid-cols-2 gap-4"

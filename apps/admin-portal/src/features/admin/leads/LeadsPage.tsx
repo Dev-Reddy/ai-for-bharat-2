@@ -223,6 +223,9 @@ export default function LeadsPage() {
                 Manually enter a new lead into the system. AI will process it shortly.
               </DialogDescription>
             </DialogHeader>
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 mb-4">
+              Voice calls in this demo are powered by Twilio. To follow user privacy and consent requirements, calls can only be made to verified tester numbers. To test the voice feature, please contact me at +91 8989119100 and I will add your number as a tester. You can also self host the project with your credentials for full testing.
+            </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-zinc-700 dark:text-zinc-300">Full Name</Label>

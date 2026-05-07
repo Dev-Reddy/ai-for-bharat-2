@@ -74,6 +74,9 @@ export function LeadFormSection() {
             <p className="text-[16px] text-[#475569]">
               Fill out the form below to start our interactive demo.
             </p>
+            <div className="rounded-md border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700 mt-4 max-w-2xl mx-auto">
+              Voice calls in this demo are powered by Twilio. To follow user privacy and consent requirements, calls can only be made to verified tester numbers. To test the voice feature, please contact me at +91 8989119100 and I will add your number as a tester. You can also self host the project with your credentials for full testing.
+            </div>
           </div>
           
           <LeadForm onSubmitSuccess={handleSubmit} isLoading={isLoading} />
