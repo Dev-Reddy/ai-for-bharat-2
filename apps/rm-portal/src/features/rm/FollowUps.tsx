@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, CheckCircle2 } from "lucide-react";
+import { ExternalLink, CheckCircle2, Pencil } from "lucide-react";
 import { rmApi } from "../../services/rmApi";
 
 export const FollowUps = () => {
@@ -71,6 +71,17 @@ export const FollowUps = () => {
                       WhatsApp <ExternalLink size={14} />
                     </a>
                   )}
+                  <button
+                    className="p-2 border border-slate-200 text-slate-400 hover:text-slate-700 rounded-lg transition-all"
+                    onClick={async () => {
+                      const nextMessage = window.prompt("Edit first message", f.message);
+                      if (!nextMessage || nextMessage === f.message) return;
+                      await rmApi.updateFollowUpMessage(f.id, nextMessage);
+                      queryClient.invalidateQueries({ queryKey: ["rm-followups"] });
+                    }}
+                  >
+                    <Pencil size={18} />
+                  </button>
                   {f.status === "ready" && (
                     <button
                       className="p-2 border border-slate-200 text-slate-400 hover:text-blue-600 rounded-lg transition-all"

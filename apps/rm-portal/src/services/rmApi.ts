@@ -34,11 +34,11 @@ async function apiRequest(path: string, init: RequestInit = {}) {
 
 function mapLead(raw: any) {
   const latestScore =
-    typeof raw.interestLevelScore === "number" &&
-    typeof raw.readinessToSignupScore === "number" &&
-    typeof raw.networkSizeScore === "number"
-      ? Math.round(raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore)
-      : 0;
+    typeof raw.latestScoreBreakdown?.totalScore === "number"
+      ? Math.round(raw.latestScoreBreakdown.totalScore)
+      : typeof raw.latestScore === "number"
+        ? raw.latestScore
+        : 0;
 
   return {
     id: raw.id,
@@ -64,7 +64,7 @@ function mapLead(raw: any) {
           : raw.contactStatus === "pending"
             ? "pending_contact"
             : "conversation_completed",
-    classification: raw.finalInterestScore ?? "cold",
+    classification: raw.finalInterestScore ?? raw.latestScoreBreakdown?.classification ?? "cold",
     latestScore,
     latestSummary: raw.overallSummary ?? "",
     latestNextAction: raw.recommendedNextAction ?? "",
@@ -72,48 +72,58 @@ function mapLead(raw: any) {
     objections: raw.objections ?? [],
     mainObjection: raw.objections?.[0]?.type ?? "No objection captured",
     topicsCovered: raw.topicsCovered ?? [],
-    interestLevelScore: raw.interestLevelScore ?? 0,
-    readinessToSignupScore: raw.readinessToSignupScore ?? 0,
-    networkSizeScore: raw.networkSizeScore ?? 0,
-    waMeLink: raw.waMeLink ?? null,
+    interestLevelScore: raw.latestScoreBreakdown?.interestLevelScore ?? raw.interestLevelScore ?? 0,
+    readinessToSignupScore: raw.latestScoreBreakdown?.readinessToSignupScore ?? raw.readinessToSignupScore ?? 0,
+    networkSizeScore: raw.latestScoreBreakdown?.networkSizeScore ?? raw.networkSizeScore ?? 0,
+    waMeLink: raw.waMeLink ?? raw.leadWaMeLink ?? null,
+    canStartCall: Boolean(raw.canStartCall ?? !raw.hasAnyCall),
   };
 }
 
 export const rmApi = {
   getRMDashboardOverview: async () => {
-    const [leads, tasks, followUps] = await Promise.all([
-      apiRequest("/leads", { method: "GET" }),
-      apiRequest("/rm-tasks", { method: "GET" }),
-      apiRequest("/follow-ups", { method: "GET" }),
+    const [overview, funnel, classificationBreakdown, languageBreakdown, objectionBreakdown] = await Promise.all([
+      apiRequest("/analytics/overview?period=all_time", { method: "GET" }),
+      apiRequest("/analytics/funnel?period=all_time", { method: "GET" }),
+      apiRequest("/analytics/classification-breakdown?period=all_time", { method: "GET" }),
+      apiRequest("/analytics/language-breakdown?period=all_time", { method: "GET" }),
+      apiRequest("/analytics/objection-breakdown?period=all_time", { method: "GET" }),
     ]);
-    const mapped = (Array.isArray(leads) ? leads : []).map(mapLead);
-    const hotLeads = mapped.filter((lead: any) => lead.classification === "hot");
-    const followUpsDue = mapped.filter((lead: any) => lead.classification === "warm");
+    const leads = await rmApi.getRMLeads();
+    const hotLeads = leads.filter((lead: any) => lead.classification === "hot");
 
     return {
       overview: {
-        assignedHotLeads: hotLeads.length,
-        pendingTasks: Array.isArray(tasks) ? tasks.filter((task: any) => task.status !== "completed").length : 0,
-        followUpsDue: Array.isArray(followUps) ? followUps.length : followUpsDue.length,
-        convertedLeads: mapped.filter((lead: any) => lead.status === "converted").length,
-        closedLeads: mapped.filter((lead: any) => lead.classification === "cold").length,
-        averageLeadScore:
-          mapped.length > 0
-            ? Math.round(
-                mapped.reduce((sum: number, lead: any) => sum + lead.latestScore, 0) /
-                  mapped.length,
-              )
-            : 0,
+        assignedHotLeads: overview.overview.hot,
+        pendingTasks: overview.rmLoad?.[0]?.pendingTaskCount ?? 0,
+        followUpsDue: overview.overview.followUpsScheduled,
+        convertedLeads: overview.overview.converted,
+        closedLeads: overview.overview.cold,
+        averageLeadScore: overview.leadScoreRows?.length
+          ? Math.round(overview.leadScoreRows.reduce((sum: number, row: any) => sum + row.totalScore, 0) / overview.leadScoreRows.length)
+          : 0,
       },
       hotLeads,
-      followUpsDue,
+      followUpsDue: [],
       notifications: [],
+      funnel,
+      classificationBreakdown,
+      languageBreakdown,
+      objectionBreakdown,
+      scoreBreakdown: overview.scoreBreakdown ?? [],
+      scoreDimensionAverages: overview.scoreDimensionAverages ?? {},
     };
   },
 
-  getRMLeads: async () => {
-    const data = await apiRequest("/leads", { method: "GET" });
-    return (Array.isArray(data) ? data : []).map(mapLead);
+  getRMLeads: async (params: Record<string, unknown> = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        query.set(key, String(value));
+      }
+    });
+    const data = await apiRequest(`/leads${query.toString() ? `?${query.toString()}` : ""}`, { method: "GET" });
+    return (Array.isArray(data.data) ? data.data : []).map(mapLead);
   },
 
   getRMHotLeads: async () => {
@@ -153,11 +163,23 @@ export const rmApi = {
         };
     return {
       lead,
-      messages: (data.messages ?? []).map((message: any) => ({
-        id: message.id,
-        role: message.senderType === "ai" ? "assistant" : "user",
-        content: message.messageText,
-      })),
+      messages: data.latestTranscriptSource === "call_thread"
+        ? String(data.latestTranscript ?? "")
+          .split("\n")
+          .filter(Boolean)
+          .map((line: string, index: number) => {
+            const [speaker, ...rest] = line.split(":");
+            return {
+              id: `${leadId}-call-${index}`,
+              role: speaker.toLowerCase().includes("ai") ? "assistant" : "user",
+              content: rest.join(":").trim(),
+            };
+          })
+        : (data.messages ?? []).map((message: any) => ({
+            id: message.id,
+            role: message.senderType === "ai" ? "assistant" : "user",
+            content: message.messageText,
+          })),
       score,
       rmTask: data.latestRmTask ?? {
         suggestedOpeningLine:
@@ -166,6 +188,8 @@ export const rmApi = {
           "Continue from the AI summary and confirm the next step.",
       },
       followUp: data.latestFollowUp ?? null,
+      canStartCall: data.lead.canStartCall,
+      leadWaMeLink: data.lead.leadWaMeLink,
     };
   },
 
@@ -203,6 +227,13 @@ export const rmApi = {
     });
   },
 
+  updateFollowUpMessage: async (followUpId: string, message: string) => {
+    return await apiRequest(`/follow-ups/${followUpId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ message }),
+    });
+  },
+
   scheduleLeadCall: async (leadId: string) => {
     return await apiRequest(`/leads/${leadId}/schedule-call`, {
       method: "POST",
@@ -210,17 +241,18 @@ export const rmApi = {
     });
   },
 
-  getRMFollowUps: async () => {
-    const [followUps, leads] = await Promise.all([
-      apiRequest("/follow-ups", { method: "GET" }),
-      apiRequest("/leads", { method: "GET" }),
-    ]);
-    const leadMap = new Map(
-      (Array.isArray(leads) ? leads : []).map((lead: any) => [lead.id, mapLead(lead)]),
-    );
+  runLeadAnalysis: async (leadId: string) => {
+    return await apiRequest(`/leads/${leadId}/run-analysis`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
 
-    return (Array.isArray(followUps) ? followUps : []).map((item: any) => {
-      const lead = leadMap.get(item.leadId);
+  getRMFollowUps: async () => {
+    const followUps = await apiRequest("/follow-ups?page=1&pageSize=100", { method: "GET" });
+
+    return (Array.isArray(followUps.data) ? followUps.data : []).map((item: any) => {
+      const lead = item.lead ?? null;
       return {
         id: item.id,
         leadId: item.leadId,

@@ -1,7 +1,7 @@
 
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
-import { LayoutDashboard, Flame, Users, Clock, Bell, MessageSquare, LogOut } from 'lucide-react';
+import { LayoutDashboard, Flame, Users, Clock, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from '@tanstack/react-router';
 import { authApi } from '../../services/authApi';
@@ -14,8 +14,6 @@ export const RMLayout = ({ children }: { children: ReactNode }) => {
     { to: '/rm/hot-leads', icon: <Flame size={18}/>, label: "Hot Leads" },
     { to: '/rm/leads', icon: <Users size={18}/>, label: "My Leads" },
     { to: '/rm/follow-ups', icon: <Clock size={18}/>, label: "Follow Ups" },
-    { to: '/rm/notifications', icon: <Bell size={18}/>, label: "Notifications" },
-    { to: '/rm/feedback', icon: <MessageSquare size={18}/>, label: "Feedback" },
   ];
 
   return (

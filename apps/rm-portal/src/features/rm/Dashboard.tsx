@@ -44,19 +44,22 @@ export const RMDashboard = () => {
           </div>
         </section>
 
-        {/* Notifications */}
+        {/* Analytics */}
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sans">
-           <div className="p-5 border-b border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-widest bg-slate-50/50">Recent Notifications</div>
-           <div className="p-5 space-y-4">
-              {data?.notifications.map((n: any) => (
-                <div key={n.id} className="flex gap-4 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0"></div>
-                   <div>
-                     <p className="text-sm font-bold text-slate-900">{n.title}</p>
-                     <p className="text-xs text-slate-600 mt-0.5">{n.message}</p>
-                   </div>
-                </div>
-              ))}
+           <div className="p-5 border-b border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-widest bg-slate-50/50">Score Breakdown</div>
+           <div className="p-5 grid grid-cols-3 gap-4">
+              <div className="rounded-lg border p-4">
+                <div className="text-xs text-slate-500 uppercase tracking-widest">Interest</div>
+                <div className="text-3xl font-black text-slate-900 mt-2">{data?.scoreDimensionAverages?.interest ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-xs text-slate-500 uppercase tracking-widest">Readiness</div>
+                <div className="text-3xl font-black text-slate-900 mt-2">{data?.scoreDimensionAverages?.readiness ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <div className="text-xs text-slate-500 uppercase tracking-widest">Network</div>
+                <div className="text-3xl font-black text-slate-900 mt-2">{data?.scoreDimensionAverages?.network ?? 0}</div>
+              </div>
            </div>
         </section>
       </div>

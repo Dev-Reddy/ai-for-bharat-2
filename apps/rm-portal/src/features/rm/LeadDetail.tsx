@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { CheckCircle, Clock, MessageCircle, PhoneCall } from "lucide-react";
+import { CheckCircle, Clock, MessageCircle, PhoneCall, RefreshCcw } from "lucide-react";
 import { rmApi } from "../../services/rmApi";
 
 export const LeadDetail = () => {
@@ -16,6 +16,13 @@ export const LeadDetail = () => {
     mutationFn: () => rmApi.scheduleLeadCall(leadId || ""),
     onSuccess: () => window.alert("Call scheduled"),
     onError: () => window.alert("Failed to schedule call"),
+  });
+
+  const rerunMutation = useMutation({
+    mutationFn: () => rmApi.runLeadAnalysis(leadId || ""),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lead-detail", leadId] });
+    },
   });
 
   const openFollowUpMutation = useMutation({
@@ -66,13 +73,6 @@ export const LeadDetail = () => {
 
       <div className="lg:col-span-8 space-y-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="text-xs font-black text-slate-400 uppercase mb-4">AI Summary</h3>
-          <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg">
-            {lead?.latestSummary || score?.reason}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-xs font-black text-slate-400 uppercase mb-4">Objections And Handling</h3>
           <div className="space-y-3">
             {score?.objections?.length ? score.objections.map((obj: any, i: number) => (
@@ -113,19 +113,27 @@ export const LeadDetail = () => {
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-          {data.followUp?.waMeLink && (
+          {(data.followUp?.waMeLink || data.leadWaMeLink) && (
             <button
               className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all"
-              onClick={() => openFollowUpMutation.mutate()}
+              onClick={() => data.followUp?.id ? openFollowUpMutation.mutate() : window.open(data.leadWaMeLink, "_blank", "noopener,noreferrer")}
             >
               <MessageCircle size={18} /> Open WhatsApp
             </button>
           )}
+          {data.canStartCall ? (
           <button
             className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-slate-50"
             onClick={() => scheduleCallMutation.mutate()}
           >
-            <PhoneCall size={18} /> Schedule Call
+            <PhoneCall size={18} /> Call now
+          </button>
+          ) : null}
+          <button
+            className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-slate-50"
+            onClick={() => rerunMutation.mutate()}
+          >
+            <RefreshCcw size={18} /> Analyze again
           </button>
           <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all">
             <CheckCircle size={18} /> Mark Converted
