@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "../../../components/theme-provider";
 import { useNavigate } from "../../../lib/routerCompat";
+import { adminAxisTickColor, adminChartPalette, adminLeadClassColors } from "../../../theme/adminChartTheme";
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "all_time">("all_time");
@@ -63,20 +64,13 @@ export default function DashboardPage() {
     { label: "Converted", value: overview.converted, icon: Target, color: "text-emerald-600", trend: "+3%", onClick: () => navigate("/admin/leads/converted") },
   ];
 
-  const classColors = {
-    hot: "#f97316", // orange-500
-    warm: "#10b981", // emerald-500
-    cold: "#52525b"  // zinc-600
-  };
-
   const pieData = [
-    { name: 'Hot', value: overview.hot, fill: classColors.hot },
-    { name: 'Warm', value: overview.warm, fill: classColors.warm },
-    { name: 'Cold', value: overview.cold, fill: classColors.cold },
+    { name: 'Hot', value: overview.hot, fill: adminLeadClassColors.hot },
+    { name: 'Warm', value: overview.warm, fill: adminLeadClassColors.warm },
+    { name: 'Cold', value: overview.cold, fill: adminLeadClassColors.cold },
   ];
 
-  const chartFill = theme === "dark" ? "#e4e4e7" : "#3f3f46"; // zinc-200 : zinc-700
-  const axisColor = theme === "dark" ? "#a1a1aa" : "#71717a";
+  const axisColor = adminAxisTickColor(theme === "dark" ? "dark" : "light");
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -159,7 +153,11 @@ export default function DashboardPage() {
                       <XAxis type="number" hide />
                       <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: axisColor}} width={140} />
                       <Tooltip content={<CustomTooltip />} cursor={{fill: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}} />
-                      <Bar dataKey="count" fill={chartFill} radius={[0, 4, 4, 0]} barSize={30} />
+                      <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={30}>
+                        {(funnel ?? []).map((_: any, idx: number) => (
+                          <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -211,7 +209,11 @@ export default function DashboardPage() {
                       <XAxis dataKey="language" axisLine={false} tickLine={false} tick={{fill: axisColor}} />
                       <YAxis hide />
                       <Tooltip content={<CustomTooltip />} cursor={{fill: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}} />
-                      <Bar dataKey="count" fill={chartFill} radius={[4, 4, 0, 0]} barSize={40} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
+                        {(languageStats ?? []).map((_: any, idx: number) => (
+                          <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -231,7 +233,11 @@ export default function DashboardPage() {
                       <XAxis type="number" hide />
                       <YAxis dataKey="type" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: axisColor}} width={120} />
                       <Tooltip content={<CustomTooltip />} cursor={{fill: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}} />
-                      <Bar dataKey="count" fill={chartFill} radius={[0, 4, 4, 0]} barSize={30} />
+                      <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={30}>
+                        {(objectionStats ?? []).map((_: any, idx: number) => (
+                          <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -248,7 +254,11 @@ export default function DashboardPage() {
                     <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill: axisColor}} />
                     <YAxis hide />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="count" fill={chartFill} radius={[4, 4, 0, 0]} barSize={46} />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={46}>
+                      {(scoreBreakdown ?? []).map((_: any, idx: number) => (
+                        <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

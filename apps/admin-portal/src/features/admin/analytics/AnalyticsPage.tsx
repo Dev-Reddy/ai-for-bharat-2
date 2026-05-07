@@ -6,21 +6,7 @@ import { adminApi } from "../../../services/adminApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const chartPalette = [
-  "#6366F1",
-  "#06B6D4",
-  "#F97316",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-];
-
-const classColors = {
-  hot: "#EF4444",
-  warm: "#F97316",
-  cold: "#06B6D4",
-};
+import { adminChartPalette, adminLeadClassColors } from "../../../theme/adminChartTheme";
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "all_time">("all_time");
@@ -111,7 +97,7 @@ export default function AnalyticsPage() {
                     paddingAngle={2}
                   >
                     {classificationData.map((entry: any) => (
-                      <Cell key={entry.key} fill={classColors[entry.key as keyof typeof classColors] ?? "#94a3b8"} />
+                      <Cell key={entry.key} fill={adminLeadClassColors[entry.key as keyof typeof adminLeadClassColors] ?? "#94a3b8"} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -138,7 +124,7 @@ export default function AnalyticsPage() {
                   <Tooltip />
                   <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                     {(overview?.funnel ?? []).map((_: any, idx: number) => (
-                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -166,7 +152,7 @@ export default function AnalyticsPage() {
                   <Tooltip />
                   <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                     {(languageData ?? []).map((_: any, idx: number) => (
-                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -192,7 +178,7 @@ export default function AnalyticsPage() {
                   <Tooltip />
                   <Bar dataKey="count" radius={[0, 8, 8, 0]}>
                     {(objectionData.slice(0, 6) ?? []).map((_: any, idx: number) => (
-                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      <Cell key={idx} fill={adminChartPalette[idx % adminChartPalette.length]} />
                     ))}
                   </Bar>
                 </BarChart>

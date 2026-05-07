@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { rmAxisTickColor, rmChartPalette, rmLeadClassColors } from "../../theme/rmChartTheme";
 
 const PERIOD_OPTIONS: { value: RMDashboardPeriod; label: string }[] = [
   { value: "daily", label: "Today" },
@@ -20,21 +21,6 @@ const PERIOD_OPTIONS: { value: RMDashboardPeriod; label: string }[] = [
   { value: "monthly", label: "This month" },
   { value: "all_time", label: "All time" },
 ];
-
-const chartPalette = [
-  "#6366F1",
-  "#06B6D4",
-  "#F97316",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-];
-
-const classColors: Record<string, string> = {
-  hot: "#EF4444",
-  warm: "#F97316",
-  cold: "#06B6D4",
-};
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name?: string }>; label?: string }) {
   if (active && payload && payload.length) {
@@ -79,7 +65,7 @@ export const RMDashboard = () => {
   const pieData = classificationBreakdown.map((entry: { name: string; value: number; key: string }) => ({
     name: entry.name,
     value: entry.value,
-    fill: classColors[entry.key] ?? "#94a3b8",
+    fill: rmLeadClassColors[entry.key as keyof typeof rmLeadClassColors] ?? "#94a3b8",
   }));
 
   return (
@@ -192,13 +178,13 @@ export const RMDashboard = () => {
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      tick={{ fontSize: 11, fill: rmAxisTickColor }}
                       width={130}
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={26}>
                       {(funnel ?? []).map((_: any, idx: number) => (
-                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                        <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -220,7 +206,7 @@ export const RMDashboard = () => {
                       innerRadius={52}
                       outerRadius={88}
                       paddingAngle={2}
-                      label={{ fill: "#64748b", fontSize: 11 }}
+                      label={{ fill: rmAxisTickColor, fontSize: 11 }}
                     >
                       {pieData.map((entry: { fill: string }, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} stroke="transparent" />
@@ -237,12 +223,12 @@ export const RMDashboard = () => {
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={languageBreakdown} margin={{ top: 8 }}>
-                    <XAxis dataKey="language" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} />
+                    <XAxis dataKey="language" axisLine={false} tickLine={false} tick={{ fill: rmAxisTickColor, fontSize: 11 }} />
                     <YAxis hide />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={36}>
                       {(languageBreakdown ?? []).map((_: any, idx: number) => (
-                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                        <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -261,13 +247,13 @@ export const RMDashboard = () => {
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      tick={{ fontSize: 11, fill: rmAxisTickColor }}
                       width={100}
                     />
                     <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
                       {(objectionBreakdown ?? []).map((_: any, idx: number) => (
-                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                        <Cell key={idx} fill={rmChartPalette[idx % rmChartPalette.length]} />
                       ))}
                     </Bar>
                   </BarChart>
