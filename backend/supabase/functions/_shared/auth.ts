@@ -55,14 +55,29 @@ export async function getAuthContext(request: Request): Promise<AuthContext> {
     throw new Error("Invalid session");
   }
 
+  let userRole: AppRole | null =
+    claims.user_role === "admin" || claims.user_role === "rm"
+      ? (claims.user_role as AppRole)
+      : null;
+
+  if (!userRole) {
+    const { data: profile } = await getServiceClient()
+      .from("users")
+      .select("user_role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    userRole =
+      profile?.user_role === "admin" || profile?.user_role === "rm"
+        ? (profile.user_role as AppRole)
+        : null;
+  }
+
   return {
     accessToken,
     user: data.user,
     claims,
-    userRole:
-      claims.user_role === "admin" || claims.user_role === "rm"
-        ? (claims.user_role as AppRole)
-        : null,
+    userRole,
   };
 }
 

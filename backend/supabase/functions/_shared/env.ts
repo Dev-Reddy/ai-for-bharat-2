@@ -46,6 +46,19 @@ export const env = {
   get mem0BaseUrl() {
     return readEnv("MEM0_BASE_URL") ?? "https://api.mem0.ai";
   },
+  get mem0KnowledgeAppId() {
+    return readEnv("MEM0_KNOWLEDGE_APP_ID") ?? "aifb-knowledge-base";
+  },
+  get mem0KnowledgeAgentId() {
+    return readEnv("MEM0_KNOWLEDGE_AGENT_ID") ?? "rupeezy-shared-knowledge";
+  },
+  get mem0ProjectId() {
+    return readEnv("MEM0_PROJECT_ID") ?? "";
+  },
+  get mem0KnowledgeInstructions() {
+    return readEnv("MEM0_KNOWLEDGE_INSTRUCTIONS") ??
+      "Extract stable Rupeezy partner-program knowledge as atomic factual memories. Preserve named entities, benefits, support details, eligibility, onboarding details, and objection-handling facts. Do not invent claims.";
+  },
   get vapiApiKey() {
     return readEnv("VAPI_API_KEY") ?? "";
   },
@@ -55,10 +68,10 @@ export const env = {
   get vapiPhoneNumberId() {
     return readEnv("VAPI_PHONE_NUMBER_ID") ?? "";
   },
+  get vapiCredentialId() {
+    return readEnv("VAPI_CREDENTIAL_ID") ?? "";
+  },
   get vapiWebhookSecret() {
     return readEnv("VAPI_WEBHOOK_SECRET") ?? "";
-  },
-  get langgraphPostgresUrl() {
-    return readEnv("LANGGRAPH_POSTGRES_URL") ?? "";
   },
 };
