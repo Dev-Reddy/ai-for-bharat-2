@@ -378,10 +378,27 @@ export const adminApi = {
 
   async getConversationDetail(conversationId: string) {
     const data = await apiRequest(`/conversations/${conversationId}`, { method: "GET" });
+    const messages = Array.isArray(data.messages)
+      ? data.messages.map((message: any, index: number) => ({
+          id: message.id ?? `${conversationId}-message-${index}`,
+          role:
+            message.role ??
+            (message.senderType === "ai" ? "assistant" : "user"),
+          content: message.content ?? message.messageText ?? "",
+          sequenceNo: message.sequenceNo ?? index + 1,
+          timestamp:
+            message.timestamp ??
+            message.sentAt ??
+            message.createdAt ??
+            data.startedAt,
+        }))
+      : [];
+
     return {
       success: true,
       data: {
         ...data,
+        messages,
         sentiment: data.classification === "hot" ? "positive" : data.classification === "warm" ? "neutral" : "hesitant",
       },
     };
