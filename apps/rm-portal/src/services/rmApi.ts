@@ -201,4 +201,28 @@ export const rmApi = {
       body: JSON.stringify({}),
     });
   },
+
+  getRMFollowUps: async () => {
+    const [followUps, leads] = await Promise.all([
+      apiRequest("/follow-ups", { method: "GET" }),
+      apiRequest("/leads", { method: "GET" }),
+    ]);
+    const leadMap = new Map(
+      (Array.isArray(leads) ? leads : []).map((lead: any) => [lead.id, mapLead(lead)]),
+    );
+
+    return (Array.isArray(followUps) ? followUps : []).map((item: any) => {
+      const lead = leadMap.get(item.leadId);
+      return {
+        id: item.id,
+        leadId: item.leadId,
+        leadName: lead?.name ?? "Unknown Lead",
+        phone: lead?.phone ?? "",
+        message: item.message,
+        status: item.status,
+        waLink: item.waMeLink,
+        classification: lead?.classification ?? "warm",
+      };
+    });
+  },
 };
