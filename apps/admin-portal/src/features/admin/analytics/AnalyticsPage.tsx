@@ -7,10 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const chartPalette = [
+  "#6366F1",
+  "#06B6D4",
+  "#F97316",
+  "#EF4444",
+  "#10B981",
+  "#F59E0B",
+];
+
 const classColors = {
-  hot: "#f97316",
-  warm: "#eab308",
-  cold: "#06b6d4",
+  hot: "#EF4444",
+  warm: "#F97316",
+  cold: "#06B6D4",
 };
 
 export default function AnalyticsPage() {
@@ -127,7 +136,11 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#111827" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                    {(overview?.funnel ?? []).map((_: any, idx: number) => (
+                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -151,7 +164,11 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="language" axisLine={false} tickLine={false} />
                   <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                    {(languageData ?? []).map((_: any, idx: number) => (
+                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -173,7 +190,11 @@ export default function AnalyticsPage() {
                   <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="type" width={140} axisLine={false} tickLine={false} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#f97316" radius={[0, 8, 8, 0]} />
+                  <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                    {(objectionData.slice(0, 6) ?? []).map((_: any, idx: number) => (
+                      <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}

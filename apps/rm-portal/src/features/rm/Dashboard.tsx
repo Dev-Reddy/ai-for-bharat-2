@@ -21,10 +21,19 @@ const PERIOD_OPTIONS: { value: RMDashboardPeriod; label: string }[] = [
   { value: "all_time", label: "All time" },
 ];
 
+const chartPalette = [
+  "#6366F1",
+  "#06B6D4",
+  "#F97316",
+  "#EF4444",
+  "#10B981",
+  "#F59E0B",
+];
+
 const classColors: Record<string, string> = {
-  hot: "#f97316",
-  warm: "#10b981",
-  cold: "#64748b",
+  hot: "#EF4444",
+  warm: "#F97316",
+  cold: "#06B6D4",
 };
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name?: string }>; label?: string }) {
@@ -187,7 +196,11 @@ export const RMDashboard = () => {
                       width={130}
                     />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="count" fill="#475569" radius={[0, 4, 4, 0]} barSize={26} />
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={26}>
+                      {(funnel ?? []).map((_: any, idx: number) => (
+                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -227,7 +240,11 @@ export const RMDashboard = () => {
                     <XAxis dataKey="language" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} />
                     <YAxis hide />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="count" fill="#475569" radius={[4, 4, 0, 0]} barSize={36} />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={36}>
+                      {(languageBreakdown ?? []).map((_: any, idx: number) => (
+                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -248,7 +265,11 @@ export const RMDashboard = () => {
                       width={100}
                     />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="count" fill="#475569" radius={[0, 4, 4, 0]} barSize={24} />
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={24}>
+                      {(objectionBreakdown ?? []).map((_: any, idx: number) => (
+                        <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
