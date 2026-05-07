@@ -1518,11 +1518,14 @@ async function pickAssignedRmId(existingRmId?: string | null) {
     .select("id")
     .eq("user_role", "rm")
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .returns<Array<{ id: string }>>();
 
-  return data?.id ?? null;
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const randomIndex = Math.floor(Math.random() * data.length);
+  return data[randomIndex]?.id ?? null;
 }
 
 function sanitizePhoneForWhatsApp(phone: string) {
