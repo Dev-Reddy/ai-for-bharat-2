@@ -23,8 +23,23 @@ const rewriteKnowledgeQueriesImpl = async (userMessage: string) => {
       schema: z.object({
         queries: z.array(z.string().min(1)).length(2),
       }),
-      prompt:
-        `Rewrite the user query into two retrieval-friendly variants for partner lead conversion context.Enhance user query. \n\nUser query: ${userMessage}`,
+      prompt: `You rewrite a lead's chat message into retrieval-focused queries for Rupeezy LeadOS.
+
+Context:
+- Assistant role: Rupeezy partner lead conversion chat assistant.
+- Retrieval source: approved knowledge snippets about AP/MFD partner programs, eligibility, onboarding, objections, support, commercials, payout terms, compliance caution, and RM handoff flows.
+- Goal: improve recall for relevant facts without inventing new facts.
+
+Instructions:
+- Return exactly 2 queries.
+- Keep each query concise and searchable.
+- Preserve the lead's intent and key entities (Rupeezy, AP, MFD, RISE, brokerage share, RM, etc.).
+- Expand shorthand into retrieval terms when useful (for example "charges" -> joining fee, deposit, exchange fees, formal requirements).
+- Include objection/intent framing when relevant (already with broker, not enough contacts, trust, support concern, call later, signup readiness).
+- Do not answer the user. Do not add explanations. Do not invent details.
+
+User query:
+${userMessage}`,
     });
 
     return result.object.queries;

@@ -52,9 +52,6 @@ export const env = {
   get mem0KnowledgeAgentId() {
     return readEnv("MEM0_KNOWLEDGE_AGENT_ID") ?? "rupeezy-shared-knowledge";
   },
-  get mem0ProjectId() {
-    return readEnv("MEM0_PROJECT_ID") ?? "";
-  },
   get mem0KnowledgeInstructions() {
     return readEnv("MEM0_KNOWLEDGE_INSTRUCTIONS") ??
       "Extract stable Rupeezy partner-program knowledge as atomic factual memories. Preserve named entities, benefits, support details, eligibility, onboarding details, and objection-handling facts. Do not invent claims.";

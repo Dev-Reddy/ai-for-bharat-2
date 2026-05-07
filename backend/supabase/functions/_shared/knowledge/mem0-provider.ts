@@ -90,14 +90,26 @@ async function mem0Request(path: string, init: RequestInit = {}) {
     return null;
   }
 
-  const payload = await response.json().catch(() => null);
+  const rawBody = await response.text().catch(() => "");
+  let payload: unknown = null;
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      payload = null;
+    }
+  }
   if (!response.ok) {
     const message = typeof payload === "object" && payload && "message" in payload
       ? String(payload.message)
       : typeof payload === "object" && payload && "error" in payload
       ? String(payload.error)
       : `Mem0 request failed with status ${response.status}`;
-    const details = payload ? ` | payload=${JSON.stringify(payload)}` : "";
+    const details = payload
+      ? ` | payload=${JSON.stringify(payload)}`
+      : rawBody
+      ? ` | raw_body=${rawBody}`
+      : "";
     const enriched = `Mem0 request failed (${init.method ?? "GET"} ${path}) status=${response.status}: ${message}${details}`;
     throw new Error(enriched);
   }
@@ -229,27 +241,31 @@ async function syncDocumentImpl(document: KnowledgeDocumentProviderInput): Promi
   const eventIds: string[] = [];
 
   for (const [index, section] of sections.entries()) {
+    const metadata: Record<string, unknown> = {
+      documentId: document.id,
+      documentTitle: document.title,
+      documentType: document.documentType,
+      sectionIndex: index,
+      sectionCount: sections.length,
+      source: "knowledge_document",
+    };
+    if (document.sourceFileName) {
+      metadata.sourceFileName = document.sourceFileName;
+    }
+
     const response = await mem0Request("/v3/memories/add/", {
       method: "POST",
       body: JSON.stringify({
         app_id: env.mem0KnowledgeAppId,
         agent_id: env.mem0KnowledgeAgentId,
-        ...(env.mem0ProjectId ? { project_id: env.mem0ProjectId } : {}),
         messages: [
           {
             role: "user",
             content: section,
           },
         ],
-        metadata: {
-          documentId: document.id,
-          documentTitle: document.title,
-          documentType: document.documentType,
-          sourceFileName: document.sourceFileName,
-          sectionIndex: index,
-          sectionCount: sections.length,
-          source: "knowledge_document",
-        },
+        metadata,
+        infer: true,
         custom_instructions: context.promptTemplate,
       }),
     }) as { event_id?: string } | null;
