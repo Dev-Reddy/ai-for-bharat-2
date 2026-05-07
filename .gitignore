@@ -7,5 +7,3 @@ node_modules/
 supabase/.temp/
 deno.lock
 .vscode/
-docs/
-
