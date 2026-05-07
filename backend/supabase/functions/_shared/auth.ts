@@ -81,6 +81,16 @@ export async function getAuthContext(request: Request): Promise<AuthContext> {
   };
 }
 
+export async function getOptionalAuthContext(request: Request): Promise<AuthContext | null> {
+  const accessToken = getBearerToken(request);
+
+  if (!accessToken) {
+    return null;
+  }
+
+  return await getAuthContext(request);
+}
+
 export async function requireRole(request: Request, role: AppRole) {
   const auth = await getAuthContext(request);
 

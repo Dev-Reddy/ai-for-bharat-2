@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BadgeCheck, Bot, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
+  ensurePublicChatSession,
   endPublicChat,
   getPublicThreadMessages,
   sendPublicChatMessage,
@@ -49,9 +50,18 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
   const chatThreadId = threadId || session?.chatThreadId || null;
 
-  const applyIncomingMessage = (incoming: ChatMessage) => {
+  const isOptimisticMatch = useCallback((left: ChatMessage, right: ChatMessage) => {
+    return (
+      left.role === "user" &&
+      right.role === "user" &&
+      Boolean(left.metadata?.optimistic) &&
+      left.content === right.content
+    );
+  }, []);
+
+  const applyIncomingMessage = useCallback((incoming: ChatMessage) => {
     setMessages((previous) => {
-      const next = [...previous];
+      const next = previous.filter((message) => !isOptimisticMatch(message, incoming));
       const existingIndex = next.findIndex((item) => item.id === incoming.id);
 
       if (existingIndex >= 0) {
@@ -65,22 +75,37 @@ export function ChatWindow({ threadId }: { threadId: string }) {
           new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
       );
     });
-  };
+  }, [isOptimisticMatch]);
 
-  const hydrateThreadState = async (targetThreadId: string) => {
+  const hydrateThreadState = useCallback(async (targetThreadId: string) => {
     const result = await getPublicThreadMessages(targetThreadId);
     setThreadStatus(result.thread.status);
     setMessages((previous) => {
-      const byId = new Map(previous.map((message) => [message.id, message]));
-      for (const message of result.messages.map(normalizeMessage)) {
+      const serverMessages = result.messages.map(normalizeMessage);
+      const byId = new Map(
+        previous
+          .filter((message) => {
+            if (!message.metadata?.optimistic) {
+              return true;
+            }
+
+            return !serverMessages.some((serverMessage) =>
+              isOptimisticMatch(message, serverMessage),
+            );
+          })
+          .map((message) => [message.id, message]),
+      );
+
+      for (const message of serverMessages) {
         byId.set(message.id, message);
       }
+
       return [...byId.values()].sort(
         (a, b) =>
           new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
       );
     });
-  };
+  }, [isOptimisticMatch]);
 
   useEffect(() => {
     if (!chatThreadId) {
@@ -90,73 +115,88 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
     let isActive = true;
     const supabase = getSupabaseClient();
-    setIsLoadingThread(true);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    hydrateThreadState(chatThreadId)
-      .then(() => {
-        if (!isActive) return;
-      })
-      .finally(() => {
+    void (async () => {
+      let hasRealtimeSession = false;
+
+      try {
+        const sessionState = await ensurePublicChatSession();
+        hasRealtimeSession = Boolean(sessionState.accessToken);
+      } catch {
+        hasRealtimeSession = false;
+      }
+
+      try {
+        await hydrateThreadState(chatThreadId);
+      } catch {
+        // Keep the chat usable even if the initial history request fails.
+      } finally {
         if (isActive) {
           setIsLoadingThread(false);
         }
-      });
+      }
 
-    const channel = supabase
-      .channel(`public-thread-${chatThreadId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `thread_id=eq.${chatThreadId}`,
-        },
-        (payload) => {
-          const row =
-            payload.eventType === "DELETE"
-              ? null
-              : (payload.new as {
-                  id: string;
-                  sender_type: string;
-                  message_text: string;
-                  sent_at: string;
-                  metadata?: Record<string, unknown>;
-                });
+      if (!isActive || !hasRealtimeSession) {
+        return;
+      }
 
-          if (!row) {
-            return;
-          }
+      channel = supabase
+        .channel(`public-thread-${chatThreadId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "messages",
+            filter: `thread_id=eq.${chatThreadId}`,
+          },
+          (payload) => {
+            const row =
+              payload.eventType === "DELETE"
+                ? null
+                : (payload.new as {
+                    id: string;
+                    sender_type: string;
+                    message_text: string;
+                    sent_at: string;
+                    metadata?: Record<string, unknown>;
+                  });
 
-          applyIncomingMessage({
-            id: row.id,
-            role: row.sender_type === "ai" ? "assistant" : "user",
-            content: row.message_text,
-            sentAt: row.sent_at,
-            metadata: row.metadata ?? {},
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "chat_threads",
-          filter: `id=eq.${chatThreadId}`,
-        },
-        (payload) => {
-          const row = payload.new as { status?: string };
-          if (!row?.status) return;
-          setThreadStatus(row.status);
-          if (row.status === "completed") {
-            setTimeout(() => {
-              router.push("/thank-you");
-            }, 1200);
-          }
-        },
-      )
-      .subscribe();
+            if (!row) {
+              return;
+            }
+
+            applyIncomingMessage({
+              id: row.id,
+              role: row.sender_type === "ai" ? "assistant" : "user",
+              content: row.message_text,
+              sentAt: row.sent_at,
+              metadata: row.metadata ?? {},
+            });
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "chat_threads",
+            filter: `id=eq.${chatThreadId}`,
+          },
+          (payload) => {
+            const row = payload.new as { status?: string };
+            if (!row?.status) return;
+            setThreadStatus(row.status);
+            if (row.status === "completed") {
+              setTimeout(() => {
+                router.push("/thank-you");
+              }, 1200);
+            }
+          },
+        )
+        .subscribe();
+    })();
 
     const pollInterval = setInterval(() => {
       if (!isActive) return;
@@ -168,9 +208,11 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     return () => {
       isActive = false;
       clearInterval(pollInterval);
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [chatThreadId, router]);
+  }, [applyIncomingMessage, chatThreadId, hydrateThreadState, router]);
 
   const lastAssistantMessage = useMemo(() => {
     return [...messages].reverse().find((message) => message.role === "assistant");
@@ -178,6 +220,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
   const isAssistantStreaming =
     Boolean(lastAssistantMessage?.metadata?.streaming) && threadStatus !== "completed";
+  const showTypingIndicator = isSubmitting && !isAssistantStreaming;
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -210,15 +253,19 @@ export function ChatWindow({ threadId }: { threadId: string }) {
         applyIncomingMessage(serverUserMessage);
       }
       if (result.assistantMessage) {
-        applyIncomingMessage({
-          id: result.assistantMessage.id,
-          role: "assistant",
-          content: result.assistantMessage.messageText,
-          sentAt: new Date().toISOString(),
-          metadata: {
-            streaming: false,
-          },
-        });
+        try {
+          await hydrateThreadState(chatThreadId);
+        } catch {
+          applyIncomingMessage({
+            id: result.assistantMessage.id,
+            role: "assistant",
+            content: result.assistantMessage.messageText,
+            sentAt: new Date().toISOString(),
+            metadata: {
+              streaming: false,
+            },
+          });
+        }
       }
       if (result.conversationComplete) {
         setThreadStatus("completed");
@@ -258,27 +305,36 @@ export function ChatWindow({ threadId }: { threadId: string }) {
 
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto bg-gray-50 border-x border-gray-100 shadow-[0_0_50px_rgba(0,0,0,0.03)]">
-      <header className="flex items-center px-6 py-4 bg-white border-b border-gray-100 shrink-0">
-        <button
-          onClick={() => {
-            clearLead();
-            router.push("/");
-          }}
-          className="p-2 mr-3 -ml-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
-          title="Back to home"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900 flex items-center">
-            Rupeezy Partner AI
-            <BadgeCheck className="w-4 h-4 text-blue-500 ml-1.5" />
-          </h1>
-          <p className="text-xs text-green-600 flex items-center mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-            {threadStatus === "completed" ? "Conversation completed" : "Live chat"}
-          </p>
+      <header className="flex items-center justify-between gap-4 px-6 py-4 bg-white border-b border-gray-100 shrink-0">
+        <div className="flex items-center min-w-0">
+          <button
+            onClick={() => {
+              clearLead();
+              router.push("/");
+            }}
+            className="p-2 mr-3 -ml-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+            title="Back to home"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-gray-900 flex items-center">
+              Rupeezy Partner AI
+              <BadgeCheck className="w-4 h-4 text-blue-500 ml-1.5" />
+            </h1>
+            <p className="text-xs text-green-600 flex items-center mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+              {threadStatus === "completed" ? "Conversation completed" : "Live chat"}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => void handleEndChat()}
+          disabled={isSubmitting || threadStatus === "completed"}
+          className="shrink-0 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          End chat
+        </button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -310,7 +366,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
           </div>
         ))}
 
-        {(isAssistantStreaming || isSubmitting) && (
+        {showTypingIndicator && (
           <div className="flex justify-start">
             <div className="flex max-w-[85%] flex-row">
               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm bg-white border border-gray-100 text-[#0ea5e9] mr-3">
@@ -329,7 +385,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
       </div>
 
       <div className="p-4 bg-white border-t border-gray-100 shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-        <div className="relative flex items-end gap-3">
+        <div className="relative">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -350,16 +406,9 @@ export function ChatWindow({ threadId }: { threadId: string }) {
             onClick={() => void handleSend()}
             disabled={!inputValue.trim() || isAssistantStreaming || isSubmitting || threadStatus === "completed"}
             aria-label="Send message"
-            className="absolute right-16 bottom-2 p-2 rounded-full text-white bg-[#0ea5e9] hover:bg-[#0284c7] disabled:bg-gray-300 disabled:text-gray-500 transition-colors shadow-sm"
+            className="absolute right-3 bottom-2 p-2 rounded-full text-white bg-[#0ea5e9] hover:bg-[#0284c7] disabled:bg-gray-300 disabled:text-gray-500 transition-colors shadow-sm"
           >
             <Send className="w-4 h-4 ml-0.5" />
-          </button>
-          <button
-            onClick={() => void handleEndChat()}
-            disabled={isSubmitting}
-            className="min-w-[116px] h-[52px] rounded-2xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-          >
-            End chat
           </button>
         </div>
         <div className="text-center mt-2">

@@ -1,4 +1,4 @@
-import { getAuthContext } from "../_shared/auth.ts";
+import { getAuthContext, getOptionalAuthContext } from "../_shared/auth.ts";
 import { failure, success } from "../_shared/response.ts";
 import { parseJson } from "../_shared/validation.ts";
 import {
@@ -30,35 +30,41 @@ function ensureStaff(auth: Awaited<ReturnType<typeof getAuthContext>>) {
 }
 
 export async function handlePublicLeadCreate(request: Request) {
+  const auth = await getOptionalAuthContext(request);
   const payload = await parseJson(request, publicLeadSchema);
-  const result = await createPublicLead(null, payload);
+  const result = await createPublicLead(auth?.user.id ?? null, payload);
   return success(result, { status: 201 });
 }
 
 export async function handlePublicClientLeadCreate(request: Request) {
+  const auth = await getOptionalAuthContext(request);
   const payload = await parseJson(request, publicLeadSchema);
-  const result = await createPublicLead(null, payload);
+  const result = await createPublicLead(auth?.user.id ?? null, payload);
   return success(result, { status: 201 });
 }
 
 export async function handlePublicChatMessagesGet(request: Request, threadId: string) {
-  const result = await getPublicThreadMessagesById(threadId);
+  const auth = await getOptionalAuthContext(request);
+  const result = await getPublicThreadMessagesById(threadId, auth?.user.id ?? null);
   return success(result);
 }
 
 export async function handlePublicChatMessagesPost(request: Request, threadId: string) {
+  const auth = await getOptionalAuthContext(request);
   const payload = await parseJson(request, chatMessageSchema);
-  const result = await sendPublicThreadMessage(threadId, payload);
+  const result = await sendPublicThreadMessage(threadId, payload, auth?.user.id ?? null);
   return success(result);
 }
 
 export async function handlePublicChatEnd(request: Request, threadId: string) {
-  const result = await endPublicThreadChat(threadId);
+  const auth = await getOptionalAuthContext(request);
+  const result = await endPublicThreadChat(threadId, auth?.user.id ?? null);
   return success(result);
 }
 
 export async function handlePublicLeadStartChat(request: Request, leadId: string) {
-  const result = await startPublicLeadChatById(leadId);
+  const auth = await getOptionalAuthContext(request);
+  const result = await startPublicLeadChatById(leadId, auth?.user.id ?? null);
   return success(result);
 }
 

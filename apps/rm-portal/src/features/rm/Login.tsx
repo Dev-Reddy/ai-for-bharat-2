@@ -100,11 +100,6 @@ export const Login = () => {
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
-
-          <div className="mt-8 p-4 bg-blue-50 rounded-2xl border border-blue-100 border-dashed">
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Account Access</p>
-            <p className="text-xs font-bold text-blue-600">Use your Supabase RM credentials.</p>
-          </div>
         </div>
 
         <p className="text-center mt-8 text-slate-400 text-[10px] font-black uppercase tracking-widest">

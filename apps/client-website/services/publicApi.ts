@@ -1,19 +1,95 @@
+import { assertSupabaseConfigured, getSupabaseClient } from "@/lib/supabase";
 import { LeadData } from "@/store/leadSessionStore";
-import { assertSupabaseConfigured } from "@/lib/supabase";
 
 const API_BASE = `${
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
 }/functions/v1/api`;
 
-async function publicRequest<T>(path: string, init: RequestInit = {}) {
+type PublicSession = {
+  accessToken: string | null;
+  userId: string | null;
+};
+
+let anonymousAuthUnavailable = false;
+
+async function getExistingPublicSession(): Promise<PublicSession> {
+  assertSupabaseConfigured();
+  const supabase = getSupabaseClient();
+  const { data } = await supabase.auth.getSession();
+
+  if (!data.session?.access_token || !data.session.user?.id) {
+    return {
+      accessToken: null,
+      userId: null,
+    };
+  }
+
+  supabase.realtime.setAuth(data.session.access_token);
+
+  return {
+    accessToken: data.session.access_token,
+    userId: data.session.user.id,
+  };
+}
+
+export async function ensurePublicChatSession(): Promise<PublicSession> {
+  const existingSession = await getExistingPublicSession();
+  if (existingSession.accessToken) {
+    return existingSession;
+  }
+
+  if (anonymousAuthUnavailable) {
+    return {
+      accessToken: null,
+      userId: null,
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.session?.access_token || !data.user?.id) {
+    if (error && "code" in error && error.code === "anonymous_provider_disabled") {
+      anonymousAuthUnavailable = true;
+    }
+    console.warn("Anonymous Supabase auth unavailable for public chat.", error);
+    return {
+      accessToken: null,
+      userId: null,
+    };
+  }
+
+  supabase.realtime.setAuth(data.session.access_token);
+
+  return {
+    accessToken: data.session.access_token,
+    userId: data.user.id,
+  };
+}
+
+async function publicRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options: {
+    requireSession?: boolean;
+  } = {},
+) {
   assertSupabaseConfigured();
   const supabaseKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
+  const session = options.requireSession
+    ? await ensurePublicChatSession()
+    : await getExistingPublicSession();
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       apikey: supabaseKey,
+      ...(session.accessToken
+        ? {
+            Authorization: `Bearer ${session.accessToken}`,
+          }
+        : {}),
       ...(init.headers ?? {}),
     },
   });
@@ -63,36 +139,27 @@ export type PublicLeadCreateResponse = {
   } | null;
 };
 
-export const createPublicLead = async (data: LeadData) => {
-  assertSupabaseConfigured();
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
-  
-  const response = await fetch(`${API_BASE}/public/client-leads`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": supabaseKey,
+export async function createPublicLead(data: LeadData) {
+  return await publicRequest<PublicLeadCreateResponse>(
+    "/public/client-leads",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: data.name,
+        countryIso: data.countryIso,
+        countryCode: data.countryCode,
+        mobileNumber: data.mobileNumber,
+        email: data.email || "",
+        address: data.address || "",
+        preferredLanguage: data.preferredLanguage || "english",
+        preferredContactMethod: data.preferredContactMethod || "chat_now",
+      }),
     },
-    body: JSON.stringify({
-      name: data.name,
-      countryIso: data.countryIso,
-      countryCode: data.countryCode,
-      mobileNumber: data.mobileNumber,
-      email: data.email || "",
-      address: data.address || "",
-      preferredLanguage: data.preferredLanguage || "english",
-      preferredContactMethod: data.preferredContactMethod || "chat_now",
-    }),
-  });
-
-  const payload = await response.json();
-
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error?.message ?? "Request failed.");
-  }
-
-  return payload.data as PublicLeadCreateResponse;
-};
+    {
+      requireSession: true,
+    },
+  );
+}
 
 export type PublicThreadMessagesResponse = {
   thread: {
@@ -122,6 +189,9 @@ export async function getPublicThreadMessages(threadId: string) {
     {
       method: "GET",
     },
+    {
+      requireSession: true,
+    },
   );
 }
 
@@ -131,12 +201,18 @@ export async function sendPublicChatMessage(threadId: string, messageText: strin
     assistantMessage: { id: string; messageText: string };
     lead: Record<string, unknown>;
     conversationComplete: boolean;
-  }>(`/public/chat-threads/${threadId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      messageText,
-    }),
-  });
+  }>(
+    `/public/chat-threads/${threadId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        messageText,
+      }),
+    },
+    {
+      requireSession: true,
+    },
+  );
 }
 
 export async function endPublicChat(threadId: string) {
@@ -144,6 +220,9 @@ export async function endPublicChat(threadId: string) {
     `/public/chat-threads/${threadId}/end`,
     {
       method: "POST",
+    },
+    {
+      requireSession: true,
     },
   );
 }
@@ -153,7 +232,13 @@ export async function startPublicLeadChat(leadId: string) {
     lead: PublicLeadCreateResponse["lead"];
     chatThread: NonNullable<PublicLeadCreateResponse["chatThread"]>;
     assistantMessage: PublicLeadCreateResponse["assistantMessage"];
-  }>(`/public/leads/${leadId}/start-chat`, {
-    method: "POST",
-  });
+  }>(
+    `/public/leads/${leadId}/start-chat`,
+    {
+      method: "POST",
+    },
+    {
+      requireSession: true,
+    },
+  );
 }

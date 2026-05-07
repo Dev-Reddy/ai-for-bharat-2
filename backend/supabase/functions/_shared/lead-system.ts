@@ -2101,12 +2101,17 @@ export async function startPublicLeadChat(auth: AuthContext, leadId: string) {
   };
 }
 
-export async function startPublicLeadChatById(leadId: string) {
-  const lead = await getLeadById(leadId);
+export async function startPublicLeadChatById(
+  leadId: string,
+  publicAuthUserId: string | null = null,
+) {
+  const lead = publicAuthUserId
+    ? await claimPublicLeadOwner(await getLeadById(leadId), publicAuthUserId)
+    : await getLeadById(leadId);
 
   const { chatThread, assistantMessage } = await ensureActiveChatThreadForLead(
     lead,
-    null,
+    publicAuthUserId,
   );
 
   return {
@@ -2512,8 +2517,82 @@ async function getPublicThreadContext(threadId: string) {
   return { thread, lead };
 }
 
-export async function getPublicThreadMessagesById(threadId: string) {
-  const { thread } = await getPublicThreadContext(threadId);
+async function claimPublicLeadOwner(lead: LeadRow, publicAuthUserId: string) {
+  if (lead.public_auth_user_id === publicAuthUserId) {
+    return lead;
+  }
+
+  if (lead.public_auth_user_id && lead.public_auth_user_id !== publicAuthUserId) {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("leads")
+    .update({
+      public_auth_user_id: publicAuthUserId,
+    })
+    .eq("id", lead.id)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to claim lead access.");
+  }
+
+  return data as LeadRow;
+}
+
+async function claimPublicThreadAccess(
+  threadId: string,
+  publicAuthUserId: string | null,
+) {
+  const { thread, lead } = await getPublicThreadContext(threadId);
+
+  if (!publicAuthUserId) {
+    return { thread, lead };
+  }
+
+  const ownerId = thread.public_auth_user_id ?? lead.public_auth_user_id;
+  if (ownerId && ownerId !== publicAuthUserId) {
+    throw new Error("Forbidden");
+  }
+
+  let nextLead = lead;
+  if (lead.public_auth_user_id !== publicAuthUserId) {
+    nextLead = await claimPublicLeadOwner(lead, publicAuthUserId);
+  }
+
+  let nextThread = thread;
+  if (thread.public_auth_user_id !== publicAuthUserId) {
+    const serviceClient = getServiceClient();
+    const { data, error } = await serviceClient
+      .from("chat_threads")
+      .update({
+        public_auth_user_id: publicAuthUserId,
+      })
+      .eq("id", thread.id)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Unable to claim thread access.");
+    }
+
+    nextThread = data as ChatThreadRow;
+  }
+
+  return {
+    thread: nextThread,
+    lead: nextLead,
+  };
+}
+
+export async function getPublicThreadMessagesById(
+  threadId: string,
+  publicAuthUserId: string | null = null,
+) {
+  const { thread } = await claimPublicThreadAccess(threadId, publicAuthUserId);
   const messages = await getMessagesForThread(threadId);
 
   return {
@@ -2532,8 +2611,9 @@ export async function getPublicThreadMessagesById(threadId: string) {
 export const sendPublicThreadMessage = tracedAsync("send_public_thread_message", async (
   threadId: string,
   payload: ChatMessageInput,
+  publicAuthUserId: string | null = null,
 ) => {
-  const { lead } = await getPublicThreadContext(threadId);
+  const { lead } = await claimPublicThreadAccess(threadId, publicAuthUserId);
   const serviceClient = getServiceClient();
   const { data: userMessage, error } = await serviceClient
     .from("messages")
@@ -2602,8 +2682,11 @@ export const sendPublicThreadMessage = tracedAsync("send_public_thread_message",
   };
 });
 
-export async function endPublicThreadChat(threadId: string) {
-  const { lead } = await getPublicThreadContext(threadId);
+export async function endPublicThreadChat(
+  threadId: string,
+  publicAuthUserId: string | null = null,
+) {
+  const { lead } = await claimPublicThreadAccess(threadId, publicAuthUserId);
   const serviceClient = getServiceClient();
   const messages = await getMessagesForThread(threadId);
   const transcript = formatConversationTranscript(messages);

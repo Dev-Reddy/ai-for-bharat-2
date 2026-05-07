@@ -36,7 +36,6 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "admin@leados.demo", password: "password123" },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -84,7 +83,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@leados.demo"
+                placeholder="admin@company.com"
                 {...register("email")}
                 className={`bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               />
@@ -108,9 +107,6 @@ export default function LoginPage() {
               <Link to="/admin/forgot-password" className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
                 Forgot password?
               </Link>
-            </div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-[#1A2234] p-2 rounded border border-zinc-200 dark:border-zinc-800">
-              Use your Supabase admin credentials.
             </div>
           </CardContent>
           <CardFooter>
