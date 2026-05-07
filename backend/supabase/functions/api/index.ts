@@ -46,7 +46,7 @@ import {
   handleLeadScoreDetail,
   handleRmTasksList,
   handleRunLeadAnalysis,
-} from "./theme7-routes.ts";
+} from "./analysis-routes.ts";
 
 function notFound() {
   return failure("NOT_FOUND", "Route not found.", 404);
