@@ -2,28 +2,15 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
-const supabasePublishableKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
-const isSupabaseConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-);
-
-export function assertSupabaseConfigured() {
-  if (!isSupabaseConfigured) {
-    throw new Error("Missing Supabase environment variables.");
-  }
-}
+export const SUPABASE_URL = "https://nyrvemlpwxqgwuoklkzd.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_3i3zvjtBlw2wFeU6B9OrGw_JPWXk3PI";
+export const API_BASE = `${SUPABASE_URL}/functions/v1/api`;
 
 let supabaseClient: SupabaseClient | null = null;
 
 export function getSupabaseClient() {
-  assertSupabaseConfigured();
-
   if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

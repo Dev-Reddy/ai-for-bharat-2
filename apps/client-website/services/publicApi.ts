@@ -1,9 +1,9 @@
-import { assertSupabaseConfigured, getSupabaseClient } from "@/lib/supabase";
+import {
+  API_BASE,
+  SUPABASE_PUBLISHABLE_KEY,
+  getSupabaseClient,
+} from "@/lib/supabase";
 import { LeadData } from "@/store/leadSessionStore";
-
-const API_BASE = `${
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
-}/functions/v1/api`;
 
 type PublicSession = {
   accessToken: string | null;
@@ -13,7 +13,6 @@ type PublicSession = {
 let anonymousAuthUnavailable = false;
 
 async function getExistingPublicSession(): Promise<PublicSession> {
-  assertSupabaseConfigured();
   const supabase = getSupabaseClient();
   const { data } = await supabase.auth.getSession();
 
@@ -83,9 +82,6 @@ async function publicRequest<T>(
     requireSession?: boolean;
   } = {},
 ) {
-  assertSupabaseConfigured();
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "placeholder-publishable-key";
   const session = options.requireSession
     ? await ensurePublicChatSession()
     : await getExistingPublicSession();
@@ -94,7 +90,7 @@ async function publicRequest<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
-      apikey: supabaseKey,
+      apikey: SUPABASE_PUBLISHABLE_KEY,
       ...(session.accessToken
         ? {
             Authorization: `Bearer ${session.accessToken}`,
