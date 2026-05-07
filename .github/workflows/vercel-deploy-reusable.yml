@@ -1,0 +1,60 @@
+name: Vercel Deploy Reusable
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        description: Human-readable app name
+        required: true
+        type: string
+      app_path:
+        description: Relative path to the app directory
+        required: true
+        type: string
+      node_version:
+        description: Node.js version to use
+        required: false
+        default: "20"
+        type: string
+    secrets:
+      vercel_token:
+        required: true
+      vercel_org_id:
+        required: true
+      vercel_project_id:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.app_name }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: vercel-${{ inputs.app_path }}-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: ${{ inputs.app_path }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.vercel_token }}
+      VERCEL_ORG_ID: ${{ secrets.vercel_org_id }}
+      VERCEL_PROJECT_ID: ${{ secrets.vercel_project_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Pull Vercel project settings
+        run: npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: npx vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output to Vercel
+        run: npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

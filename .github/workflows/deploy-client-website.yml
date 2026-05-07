@@ -1,0 +1,22 @@
+name: Deploy Client Website
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/client-website/**"
+      - ".github/workflows/deploy-client-website.yml"
+      - ".github/workflows/vercel-deploy-reusable.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/vercel-deploy-reusable.yml
+    with:
+      app_name: client-website
+      app_path: apps/client-website
+    secrets:
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_CLIENT_WEBSITE }}

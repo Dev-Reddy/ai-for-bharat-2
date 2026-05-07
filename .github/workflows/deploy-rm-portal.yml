@@ -1,0 +1,22 @@
+name: Deploy RM Portal
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/rm-portal/**"
+      - ".github/workflows/deploy-rm-portal.yml"
+      - ".github/workflows/vercel-deploy-reusable.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/vercel-deploy-reusable.yml
+    with:
+      app_name: rm-portal
+      app_path: apps/rm-portal
+    secrets:
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_RM_PORTAL }}
