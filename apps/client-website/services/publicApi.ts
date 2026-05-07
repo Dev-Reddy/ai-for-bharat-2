@@ -107,7 +107,7 @@ async function publicRequest<T>(
   const rawPayload = await response.text();
   const payload = rawPayload ? safeJsonParse(rawPayload) : null;
 
-  if (!response.ok || !payload || payload.success !== true) {
+  if (!response.ok || !isSuccessfulApiPayload(payload)) {
     const errorMessage =
       payload && typeof payload === "object" && "error" in payload
         ? getApiErrorMessage(payload)
@@ -140,6 +140,16 @@ function getApiErrorMessage(payload: unknown) {
   }
 
   return "Request failed.";
+}
+
+function isSuccessfulApiPayload(payload: unknown): payload is { success: true; data: unknown } {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      "success" in payload &&
+      payload.success === true &&
+      "data" in payload,
+  );
 }
 
 export type PublicLeadCreateResponse = {
