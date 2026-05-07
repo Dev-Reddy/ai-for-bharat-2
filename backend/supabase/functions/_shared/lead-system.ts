@@ -2649,7 +2649,28 @@ export const sendPublicThreadMessage = tracedAsync("send_public_thread_message",
     threadId,
   });
   runInBackground((async () => {
+    // Only run transcript analysis and auto-complete if the lead has been
+    // inactive for at least one minute. This avoids prematurely closing
+    // conversations while the user is still engaged.
     const finalHistory = await getMessagesForThread(threadId);
+    const lastUserMessage = [...finalHistory].reverse().find((m) => m.sender_type === "lead");
+
+    if (!lastUserMessage) {
+      // No user messages to analyze yet.
+      return;
+    }
+
+    const lastUserTs = new Date(lastUserMessage.sent_at).getTime();
+    const now = Date.now();
+    const inactivityMs = now - lastUserTs;
+
+    if (inactivityMs < 60_000) {
+      // Defer analysis until at least one minute has passed since the last
+      // user message. This is a conservative guard to prevent immediate
+      // auto-completions.
+      return;
+    }
+
     const transcript = formatConversationTranscript(finalHistory);
     const analysisResult = await analyzeTranscript({
       lead,
@@ -2658,6 +2679,7 @@ export const sendPublicThreadMessage = tracedAsync("send_public_thread_message",
       sourceId: threadId,
       durationSeconds: null,
     });
+
     await applyLeadAnalysis({
       lead,
       result: analysisResult,
@@ -2761,28 +2783,42 @@ export const sendPublicChatMessage = tracedAsync("send_public_chat_message", asy
     threadId,
   });
 
+  // Only run analysis if the lead has been inactive for at least one minute.
   const finalHistory = await getMessagesForThread(threadId);
-  const transcript = formatConversationTranscript(finalHistory);
-  const analysisResult = await analyzeTranscript({
-    lead,
-    transcript,
-    sourceType: "chat_thread",
-    sourceId: threadId,
-    durationSeconds: null,
-  });
-  const { lead: updatedLead } = await applyLeadAnalysis({
-    lead,
-    result: analysisResult,
-  });
+  const lastUserMessage = [...finalHistory].reverse().find((m) => m.sender_type === "lead");
 
-  if (analysisResult.analysis.conversationComplete) {
-    await serviceClient
-      .from("chat_threads")
-      .update({
-        status: "completed",
-        ended_at: new Date().toISOString(),
-      })
-      .eq("id", threadId);
+  if (lastUserMessage) {
+    const lastUserTs = new Date(lastUserMessage.sent_at).getTime();
+    const now = Date.now();
+    const inactivityMs = now - lastUserTs;
+
+    if (inactivityMs >= 60_000) {
+      const transcript = formatConversationTranscript(finalHistory);
+      const analysisResult = await analyzeTranscript({
+        lead,
+        transcript,
+        sourceType: "chat_thread",
+        sourceId: threadId,
+        durationSeconds: null,
+      });
+      const { lead: updatedLead } = await applyLeadAnalysis({
+        lead,
+        result: analysisResult,
+      });
+
+      if (analysisResult.analysis.conversationComplete) {
+        await serviceClient
+          .from("chat_threads")
+          .update({
+            status: "completed",
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", threadId);
+      }
+    } else {
+      // Defer analysis; return without marking completed. Analysis will run
+      // later when inactivity threshold is met (or upon explicit end).
+    }
   }
 
   return {
