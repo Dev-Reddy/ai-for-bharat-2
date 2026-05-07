@@ -41,12 +41,20 @@ export interface Lead {
   id: string;
   name: string;
   phone: string;
+  phoneE164?: string;
+  countryIso?: string;
+  countryCode?: string;
+  mobileNumberRaw?: string;
   email?: string;
   city?: string;
   role?: string;
   networkSize?: string;
   preferredLanguage?: string;
   preferredChannel?: string;
+  source?: string;
+  sourceLabel?: string;
+  createdByUserId?: string | null;
+  createdByUser?: Partial<User> | null;
   whatsappConsent?: boolean;
   status: LeadStatus;
   classification: LeadClassification;
@@ -145,6 +153,16 @@ export interface AnalysisSystemContext {
   description?: string | null;
   promptTemplate: string;
   outputSchema: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeSystemContext {
+  id: string;
+  name: string;
+  description?: string | null;
+  promptTemplate: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

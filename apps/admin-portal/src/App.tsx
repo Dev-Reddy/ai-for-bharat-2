@@ -22,6 +22,8 @@ import KnowledgePage from "./features/admin/knowledge/KnowledgePage";
 import FeedbackPage from "./features/admin/feedback/FeedbackPage";
 import SettingsPage from "./features/admin/settings/SettingsPage";
 import ConvertedLeadsPage from "./features/admin/leads/ConvertedLeadsPage";
+import AnalysisContextsPage from "./features/admin/analysis-contexts/AnalysisContextsPage";
+import KnowledgeContextsPage from "./features/admin/knowledge-contexts/KnowledgeContextsPage";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -137,6 +139,18 @@ const adminSettingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const adminAnalysisContextsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "analysis-contexts",
+  component: AnalysisContextsPage,
+});
+
+const adminKnowledgeContextsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "knowledge-contexts",
+  component: KnowledgeContextsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   adminLoginRoute,
@@ -155,6 +169,8 @@ const routeTree = rootRoute.addChildren([
     adminFollowupsRoute,
     adminKnowledgeRoute,
     adminFeedbackRoute,
+    adminAnalysisContextsRoute,
+    adminKnowledgeContextsRoute,
     adminSettingsRoute,
   ]),
 ]);

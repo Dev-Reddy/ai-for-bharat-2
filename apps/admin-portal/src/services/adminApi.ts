@@ -7,7 +7,7 @@ import {
   MOCK_KNOWLEDGE_DOCS,
   MOCK_FEEDBACK,
 } from "../mocks/admin.mock";
-import { AnalysisSystemContext, Lead, User } from "../types/admin.types";
+import { AnalysisSystemContext, KnowledgeSystemContext, Lead, User } from "../types/admin.types";
 import { supabase } from "../lib/supabase";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,8 +66,22 @@ function mapLeadFromBackend(raw: any): Lead {
     id: raw.id,
     name: raw.name,
     phone: raw.phone,
+    phoneE164: raw.phoneE164 ?? raw.phone,
+    countryIso: raw.countryIso ?? undefined,
+    countryCode: raw.countryCode ?? undefined,
+    mobileNumberRaw: raw.mobileNumberRaw ?? undefined,
     email: raw.email ?? undefined,
     city: raw.address ?? undefined,
+    source: raw.source ?? undefined,
+    sourceLabel: raw.sourceLabel ?? raw.source ?? undefined,
+    createdByUserId: raw.createdByUserId ?? null,
+    createdByUser: raw.createdByUser
+      ? {
+          id: raw.createdByUser.id,
+          name: raw.createdByUser.name,
+          email: raw.createdByUser.email,
+        }
+      : null,
     preferredLanguage: raw.preferredLanguage ?? undefined,
     preferredChannel:
       raw.preferredContactMethod === "call_under_5_min" ? "voice" : "chat",
@@ -238,7 +252,9 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify({
         name: payload.name,
-        phone: payload.phone,
+        countryIso: payload.countryIso,
+        countryCode: payload.countryCode,
+        mobileNumber: payload.mobileNumber,
         email: payload.email || "",
         address: payload.address || payload.city || "",
         preferredLanguage: payload.preferredLanguage || "english",
@@ -253,6 +269,13 @@ export const adminApi = {
         lead: mapLeadFromBackend(data.lead),
       },
     };
+  },
+
+  async deleteLead(leadId: string) {
+    await apiRequest(`/leads/${leadId}`, {
+      method: "DELETE",
+    });
+    return { success: true };
   },
 
   async assignRm(leadId: string, rmId: string) {
@@ -498,7 +521,7 @@ export const adminApi = {
         title: payload.title,
         type: payload.type,
         content: payload.content,
-        sourceFileName: payload.fileName,
+        sourceFileName: payload.sourceFileName,
         isActive: true,
       }),
     });
@@ -512,7 +535,7 @@ export const adminApi = {
         title: payload.title,
         type: payload.type,
         content: payload.content,
-        sourceFileName: payload.fileName,
+        sourceFileName: payload.sourceFileName,
       }),
     });
     return { success: true, data };
@@ -629,6 +652,43 @@ export const adminApi = {
       body: JSON.stringify({}),
     });
     return { success: true, data: data as AnalysisSystemContext };
+  },
+
+  async getKnowledgeSystemContexts() {
+    const data = await apiRequest("/knowledge-system-contexts", { method: "GET" });
+    return { success: true, data: data as KnowledgeSystemContext[] };
+  },
+
+  async createKnowledgeSystemContext(payload: {
+    name: string;
+    description?: string;
+    promptTemplate: string;
+  }) {
+    const data = await apiRequest("/knowledge-system-contexts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return { success: true, data: data as KnowledgeSystemContext };
+  },
+
+  async updateKnowledgeSystemContext(id: string, payload: Partial<{
+    name: string;
+    description: string;
+    promptTemplate: string;
+  }>) {
+    const data = await apiRequest(`/knowledge-system-contexts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    return { success: true, data: data as KnowledgeSystemContext };
+  },
+
+  async activateKnowledgeSystemContext(id: string) {
+    const data = await apiRequest(`/knowledge-system-contexts/${id}/activate`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    return { success: true, data: data as KnowledgeSystemContext };
   },
 
   async runLeadAnalysis(leadId: string) {

@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Search, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import { Search, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Plus, Trash2 } from "lucide-react";
 import { LeadClassification, LeadStatus, Lead } from "../../../types/admin.types";
 import {
   Dialog,
@@ -30,11 +30,16 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { phoneCountryOptions } from "../../../../../shared/phoneCountryOptions";
 import { toast } from "sonner";
+
+
 
 const addLeadSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  phone: z.string().min(1, "Phone is required"),
+  countryIso: z.string().length(2, "Country is required"),
+  countryCode: z.string().regex(/^\+\d{1,4}$/, "Enter a valid country code"),
+  mobileNumber: z.string().min(6, "Mobile number is required").regex(/^\d+$/, "Mobile number should contain only digits"),
   email: z.string().email().optional().or(z.literal("")),
   address: z.string().optional(),
   preferredLanguage: z.enum(["english", "hindi", "hinglish"]).default("english"),
@@ -79,11 +84,24 @@ export default function LeadsPage() {
     }
   });
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+  const deleteMutation = useMutation({
+    mutationFn: adminApi.deleteLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Lead deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to delete lead");
+    },
+  });
+
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm({
     resolver: zodResolver(addLeadSchema),
     defaultValues: {
       name: "",
-      phone: "",
+      countryIso: "IN",
+      countryCode: "+91",
+      mobileNumber: "",
       email: "",
       address: "",
       preferredLanguage: "english",
@@ -94,6 +112,10 @@ export default function LeadsPage() {
   const onSubmit = (data: any) => {
     addMutation.mutate(data);
   };
+
+  const selectedCountry =
+    phoneCountryOptions.find((option) => option.iso === watch("countryIso")) ??
+    phoneCountryOptions[0];
 
   const getStatusBadge = (status: LeadStatus) => {
     switch (status) {
@@ -192,9 +214,39 @@ export default function LeadsPage() {
                 {errors.name && <p className="text-sm text-red-500">{errors.name.message as string}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-zinc-700 dark:text-zinc-300">Phone Number</Label>
-                <Input id="phone" {...register("phone")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                {errors.phone && <p className="text-sm text-red-500">{errors.phone.message as string}</p>}
+                <Label htmlFor="countryIso" className="text-zinc-700 dark:text-zinc-300">Country</Label>
+                <select
+                  id="countryIso"
+                  {...register("countryIso")}
+                  className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]"
+                  onChange={(event) => {
+                    const next = phoneCountryOptions.find((option) => option.iso === event.target.value) ?? phoneCountryOptions[0];
+                    setValue("countryIso", next.iso, { shouldValidate: true });
+                    setValue("countryCode", next.code, { shouldValidate: true });
+                  }}
+                >
+                  {phoneCountryOptions.map((option) => (
+                    <option key={option.iso} value={option.iso}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.countryIso && <p className="text-sm text-red-500">{errors.countryIso.message as string}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mobileNumber" className="text-zinc-700 dark:text-zinc-300">Mobile Number</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={selectedCountry.code}
+                    readOnly
+                    tabIndex={-1}
+                    className="w-24 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                  />
+                  <input type="hidden" value={selectedCountry.code} {...register("countryCode")} />
+                  <Input id="mobileNumber" {...register("mobileNumber")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                </div>
+                {errors.countryCode && <p className="text-sm text-red-500">{errors.countryCode.message as string}</p>}
+                {errors.mobileNumber && <p className="text-sm text-red-500">{errors.mobileNumber.message as string}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-zinc-700 dark:text-zinc-300">Email (Optional)</Label>
@@ -280,6 +332,7 @@ export default function LeadsPage() {
               <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('preferredChannel')}>
                 <div className="flex items-center">Channel <SortIcon column="preferredChannel" /></div>
               </TableHead>
+              <TableHead>Source</TableHead>
               <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('status')}>
                 <div className="flex items-center">Status <SortIcon column="status" /></div>
               </TableHead>
@@ -287,6 +340,7 @@ export default function LeadsPage() {
                 <div className="flex items-center">Score <SortIcon column="score" /></div>
               </TableHead>
               <TableHead>Assigned To</TableHead>
+              <TableHead>Created By</TableHead>
               <TableHead className="cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" onClick={() => handleSort('createdAt')}>
                 <div className="flex items-center">Created <SortIcon column="createdAt" /></div>
               </TableHead>
@@ -296,13 +350,13 @@ export default function LeadsPage() {
           <TableBody>
             {isLoading ? (
                <TableRow>
-                 <TableCell colSpan={7} className="h-32 text-center text-zinc-500">
+                 <TableCell colSpan={9} className="h-32 text-center text-zinc-500">
                    <span className="animate-pulse">Loading leads...</span>
                  </TableCell>
                </TableRow>
             ) : filteredAndSortedLeads.length === 0 ? (
                <TableRow>
-                 <TableCell colSpan={7} className="h-32 text-center text-zinc-500">
+                 <TableCell colSpan={9} className="h-32 text-center text-zinc-500">
                    No leads found matching your criteria.
                  </TableCell>
                </TableRow>
@@ -324,6 +378,9 @@ export default function LeadsPage() {
                   <TableCell className="capitalize text-sm text-zinc-600 dark:text-zinc-400">
                     {lead.preferredChannel || "N/A"}
                   </TableCell>
+                  <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
+                    {lead.sourceLabel || "N/A"}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1 items-start">
                       {getStatusBadge(lead.status)}
@@ -340,13 +397,38 @@ export default function LeadsPage() {
                       <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">Unassigned</span>
                     )}
                   </TableCell>
+                  <TableCell>
+                    {lead.createdByUser ? (
+                      <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                        <div>{lead.createdByUser.name}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400">{lead.createdByUser.id}</div>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">System / self</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
                     {format(new Date(lead.createdAt), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link to={`/admin/leads/${lead.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 opacity-0 group-hover:opacity-100 transition-opacity aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50">
+                    <div className="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-red-200 bg-white px-2.5 h-7 text-sm font-medium text-red-600 transition-all hover:bg-red-50 dark:border-red-900/40 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-950/30"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (deleteMutation.isPending) return;
+                          if (confirm(`Delete lead "${lead.name}" permanently?`)) {
+                            deleteMutation.mutate(lead.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      <Link to={`/admin/leads/${lead.id}`} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50">
                         View <ChevronRight className="ml-1 h-4 w-4" />
-                    </Link>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

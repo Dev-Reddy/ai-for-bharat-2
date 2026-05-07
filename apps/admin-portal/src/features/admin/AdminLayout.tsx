@@ -21,7 +21,8 @@ import {
   Bot,
   MessageCircleQuestion,
   User as UserIcon,
-  Search
+  Sparkles,
+  BrainCircuit,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,8 @@ const navItems = [
   { icon: Briefcase, label: "Campaigns", path: "/admin/campaigns" },
   { icon: UserIcon, label: "Users & RMs", path: "/admin/users" },
   { icon: BookOpen, label: "Knowledge Base", path: "/admin/knowledge" },
+  { icon: Sparkles, label: "Analysis Contexts", path: "/admin/analysis-contexts" },
+  { icon: BrainCircuit, label: "Knowledge Contexts", path: "/admin/knowledge-contexts" },
   { icon: MessageCircleQuestion, label: "Feedback", path: "/admin/feedback" },
   { icon: Bot, label: "Analytics", path: "/admin/analytics" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
@@ -189,13 +192,13 @@ export default function AdminLayout() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                  <DropdownMenuItem onClick={() => navigate('/admin/settings?tab=profile')} className="cursor-pointer text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-800">
-                    <UserIcon className="mr-2 h-4 w-4" />
-                    <span>View Profile</span>
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/admin/settings')} className="cursor-pointer text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-800">
-                    <Settings className="mr-2 h-4 w-4" />
+                    <UserIcon className="mr-2 h-4 w-4" />
                     <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/admin/analysis-contexts')} className="cursor-pointer text-gray-700 dark:text-gray-300 focus:bg-gray-100 dark:focus:bg-gray-800">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    <span>Analysis Contexts</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                   <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400 cursor-pointer focus:bg-red-50 dark:focus:bg-red-900/20">

@@ -30,6 +30,12 @@ const docSchema = z.object({
   content: z.string().min(20, "Paste the approved document content here"),
 });
 
+function getMem0SyncStatus(doc: KnowledgeDocument) {
+  const mem0 = (doc.metadata as any)?.mem0;
+  if (!mem0?.syncStatus) return null;
+  return String(mem0.syncStatus);
+}
+
 export default function KnowledgePage() {
   const [sortConfig, setSortConfig] = useState<{key: keyof KnowledgeDocument, direction: 'asc'|'desc'}>({ key: 'updatedAt', direction: 'desc' });
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -85,7 +91,7 @@ export default function KnowledgePage() {
   };
 
   const onSubmit = (data: any) => {
-    const payload = { ...data, fileName: uploadedFile?.name };
+    const payload = { ...data, sourceFileName: uploadedFile?.name };
     if (editingDoc) {
       updateDocMutation.mutate({ id: editingDoc.id, payload });
     } else {
@@ -130,7 +136,7 @@ export default function KnowledgePage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Knowledge Base</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Documents used by AI during chat and scoring. Paste the source text here; Vapi upload is manual in this MVP.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Documents used by AI during chat and scoring. Approved content is synced to Mem0 for retrieval. Vapi upload is still manual in this MVP.</p>
         </div>
 
         <Dialog open={isAddOpen || !!editingDoc} onOpenChange={(open) => {
@@ -258,7 +264,7 @@ export default function KnowledgePage() {
                   <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
                     <div className="flex flex-col">
                       <span>{doc.title}</span>
-                      {(doc as any).fileName && <span className="text-xs text-zinc-500 font-normal">{(doc as any).fileName}</span>}
+                      {doc.sourceFileName ? <span className="text-xs text-zinc-500 font-normal">{doc.sourceFileName}</span> : null}
                       {uploadedFile && doc.id === editingDoc?.id ? <span className="text-xs text-emerald-500 font-normal">Ready to upload: {uploadedFile.name}</span> : null}
                     </div>
                   </TableCell>
@@ -266,11 +272,18 @@ export default function KnowledgePage() {
                     <Badge variant="outline" className="text-zinc-600 dark:text-zinc-400 font-normal shadow-none border-zinc-200 dark:border-zinc-700">{doc.type}</Badge>
                   </TableCell>
                   <TableCell>
-                    {doc.isActive ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shadow-none border-none">Active</Badge>
-                    ) : (
-                      <Badge variant="secondary" className="shadow-none border-none bg-zinc-100 dark:bg-zinc-800 max-w-fit">Draft</Badge>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {doc.isActive ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shadow-none border-none">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="shadow-none border-none bg-zinc-100 dark:bg-zinc-800 max-w-fit">Draft</Badge>
+                      )}
+                      {getMem0SyncStatus(doc) ? (
+                        <Badge variant="outline" className="shadow-none border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300">
+                          Mem0 {getMem0SyncStatus(doc)}
+                        </Badge>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-zinc-500 dark:text-zinc-400">
                     {format(new Date(doc.updatedAt), "MMM d, yyyy")}
