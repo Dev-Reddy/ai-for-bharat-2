@@ -216,87 +216,93 @@ export default function LeadsPage() {
           <DialogTrigger className="group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 h-8 gap-1.5 px-2.5 bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white">
               <Plus className="mr-2 h-4 w-4" /> Add Lead
           </DialogTrigger>
-          <DialogContent className="bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-hidden bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
             <DialogHeader>
               <DialogTitle className="text-zinc-900 dark:text-zinc-100">Add New Lead</DialogTitle>
               <DialogDescription className="text-zinc-500 dark:text-zinc-400">
                 Manually enter a new lead into the system. AI will process it shortly.
               </DialogDescription>
             </DialogHeader>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 mb-4">
-              Voice calls in this demo are powered by Twilio. To follow user privacy and consent requirements, calls can only be made to verified tester numbers. To test the voice feature, please contact me at +91 8989119100 and I will add your number as a tester. You can also self host the project with your credentials for full testing.
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-zinc-700 dark:text-zinc-300">Full Name</Label>
-                <Input id="name" {...register("name")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                {errors.name && <p className="text-sm text-red-500">{errors.name.message as string}</p>}
+            <div className="overflow-y-auto pr-1">
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 mb-4">
+                Voice calls in this demo are powered by Twilio. To follow user privacy and consent requirements, calls can only be made to verified tester numbers. To test the voice feature, please contact me at +91 8989119100 and I will add your number as a tester. You can also self host the project with your credentials for full testing.
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="countryIso" className="text-zinc-700 dark:text-zinc-300">Country</Label>
-                <select
-                  id="countryIso"
-                  {...register("countryIso")}
-                  className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]"
-                  onChange={(event) => {
-                    const next = phoneCountryOptions.find((option) => option.iso === event.target.value) ?? phoneCountryOptions[0];
-                    setValue("countryIso", next.iso, { shouldValidate: true });
-                    setValue("countryCode", next.code, { shouldValidate: true });
-                  }}
-                >
-                  {phoneCountryOptions.map((option) => (
-                    <option key={option.iso} value={option.iso}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.countryIso && <p className="text-sm text-red-500">{errors.countryIso.message as string}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mobileNumber" className="text-zinc-700 dark:text-zinc-300">Mobile Number</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={selectedCountry.code}
-                    readOnly
-                    tabIndex={-1}
-                    className="w-24 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
-                  />
-                  <input type="hidden" value={selectedCountry.code} {...register("countryCode")} />
-                  <Input id="mobileNumber" {...register("mobileNumber")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-zinc-700 dark:text-zinc-300">Full Name</Label>
+                    <Input id="name" {...register("name")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                    {errors.name && <p className="text-sm text-red-500">{errors.name.message as string}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="countryIso" className="text-zinc-700 dark:text-zinc-300">Country</Label>
+                    <select
+                      id="countryIso"
+                      {...register("countryIso")}
+                      className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]"
+                      onChange={(event) => {
+                        const next = phoneCountryOptions.find((option) => option.iso === event.target.value) ?? phoneCountryOptions[0];
+                        setValue("countryIso", next.iso, { shouldValidate: true });
+                        setValue("countryCode", next.code, { shouldValidate: true });
+                      }}
+                    >
+                      {phoneCountryOptions.map((option) => (
+                        <option key={option.iso} value={option.iso}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.countryIso && <p className="text-sm text-red-500">{errors.countryIso.message as string}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobileNumber" className="text-zinc-700 dark:text-zinc-300">Mobile Number</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={selectedCountry.code}
+                        readOnly
+                        tabIndex={-1}
+                        className="w-24 bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                      />
+                      <input type="hidden" value={selectedCountry.code} {...register("countryCode")} />
+                      <Input id="mobileNumber" {...register("mobileNumber")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                    </div>
+                    {errors.countryCode && <p className="text-sm text-red-500">{errors.countryCode.message as string}</p>}
+                    {errors.mobileNumber && <p className="text-sm text-red-500">{errors.mobileNumber.message as string}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-zinc-700 dark:text-zinc-300">Email (Optional)</Label>
+                    <Input id="email" {...register("email")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                    {errors.email && <p className="text-sm text-red-500">{errors.email.message as string}</p>}
+                  </div>
                 </div>
-                {errors.countryCode && <p className="text-sm text-red-500">{errors.countryCode.message as string}</p>}
-                {errors.mobileNumber && <p className="text-sm text-red-500">{errors.mobileNumber.message as string}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-zinc-700 dark:text-zinc-300">Email (Optional)</Label>
-                <Input id="email" {...register("email")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                {errors.email && <p className="text-sm text-red-500">{errors.email.message as string}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address" className="text-zinc-700 dark:text-zinc-300">Address (Optional)</Label>
-                <Input id="address" {...register("address")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="preferredLanguage" className="text-zinc-700 dark:text-zinc-300">Preferred Language</Label>
-                <select id="preferredLanguage" {...register("preferredLanguage")} className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]">
-                  <option value="english">English</option>
-                  <option value="hindi">Hindi</option>
-                  <option value="hinglish">Hinglish</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="preferredContactMethod" className="text-zinc-700 dark:text-zinc-300">Preferred Method</Label>
-                <select id="preferredContactMethod" {...register("preferredContactMethod")} className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]">
-                  <option value="chat_now">Chat now</option>
-                  <option value="call_under_5_min">Call in under 5 minutes</option>
-                </select>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={addMutation.isPending} className="bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900   text-white">
-                  {addMutation.isPending ? "Adding..." : "Add Lead"}
-                </Button>
-              </DialogFooter>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-zinc-700 dark:text-zinc-300">Address (Optional)</Label>
+                  <Input id="address" {...register("address")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="preferredLanguage" className="text-zinc-700 dark:text-zinc-300">Preferred Language</Label>
+                    <select id="preferredLanguage" {...register("preferredLanguage")} className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]">
+                      <option value="english">English</option>
+                      <option value="hindi">Hindi</option>
+                      <option value="hinglish">Hinglish</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="preferredContactMethod" className="text-zinc-700 dark:text-zinc-300">Preferred Method</Label>
+                    <select id="preferredContactMethod" {...register("preferredContactMethod")} className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-[#0B0F14]">
+                      <option value="chat_now">Chat now</option>
+                      <option value="call_under_5_min">Call in under 5 minutes</option>
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={addMutation.isPending} className="bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white">
+                    {addMutation.isPending ? "Adding..." : "Add Lead"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
