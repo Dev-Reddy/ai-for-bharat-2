@@ -10,6 +10,10 @@ export interface Lead {
   id: string;
   name: string;
   phone: string;
+  phoneE164?: string;
+  countryIso?: string;
+  countryCode?: string;
+  mobileNumberRaw?: string;
   email?: string;
   city: string;
   role: string;

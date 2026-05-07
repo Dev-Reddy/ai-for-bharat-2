@@ -44,6 +44,10 @@ function mapLead(raw: any) {
     id: raw.id,
     name: raw.name,
     phone: raw.phone,
+    phoneE164: raw.phoneE164 ?? raw.phone,
+    countryIso: raw.countryIso ?? "IN",
+    countryCode: raw.countryCode ?? "+91",
+    mobileNumberRaw: raw.mobileNumberRaw ?? "",
     email: raw.email ?? undefined,
     city: raw.address ?? "",
     role: "Partner Lead",
@@ -167,7 +171,9 @@ export const rmApi = {
 
   createLead: async (payload: {
     name: string;
-    phone: string;
+    countryIso: string;
+    countryCode: string;
+    mobileNumber: string;
     email?: string;
     address?: string;
     preferredLanguage?: string;
@@ -177,7 +183,9 @@ export const rmApi = {
       method: "POST",
       body: JSON.stringify({
         name: payload.name,
-        phone: payload.phone,
+        countryIso: payload.countryIso,
+        countryCode: payload.countryCode,
+        mobileNumber: payload.mobileNumber,
         email: payload.email || "",
         address: payload.address || "",
         preferredLanguage: payload.preferredLanguage || "english",

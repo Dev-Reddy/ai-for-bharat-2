@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { rmApi } from "../../services/rmApi";
+import { phoneCountryOptions } from "../../../../shared/phoneCountryOptions";
 import { Calendar, Filter, Plus, Search } from "lucide-react";
+
+
 
 export const MyLeads = () => {
   const navigate = useNavigate();
@@ -11,7 +14,9 @@ export const MyLeads = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formState, setFormState] = useState({
     name: "",
-    phone: "",
+    countryIso: "IN",
+    countryCode: "+91",
+    mobileNumber: "",
     email: "",
     address: "",
     preferredLanguage: "english",
@@ -30,7 +35,9 @@ export const MyLeads = () => {
       setIsDialogOpen(false);
       setFormState({
         name: "",
-        phone: "",
+        countryIso: "IN",
+        countryCode: "+91",
+        mobileNumber: "",
         email: "",
         address: "",
         preferredLanguage: "english",
@@ -52,6 +59,10 @@ export const MyLeads = () => {
         lead.phone.includes(query),
     );
   }, [data, search]);
+
+  const selectedCountry =
+    phoneCountryOptions.find((option) => option.iso === formState.countryIso) ??
+    phoneCountryOptions[0];
 
   if (isLoading) {
     return <div className="p-10 text-slate-400 animate-pulse">Loading assigned leads...</div>;
@@ -96,7 +107,28 @@ export const MyLeads = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input value={formState.name} onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))} placeholder="Full name" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
-            <input value={formState.phone} onChange={(event) => setFormState((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone number" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
+            <select
+              value={formState.countryIso}
+              onChange={(event) => {
+                const next = phoneCountryOptions.find((option) => option.iso === event.target.value) ?? phoneCountryOptions[0];
+                setFormState((prev) => ({
+                  ...prev,
+                  countryIso: next.iso,
+                  countryCode: next.code,
+                }));
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+            >
+              {phoneCountryOptions.map((option) => (
+                <option key={option.iso} value={option.iso}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-3">
+              <input value={selectedCountry.code} readOnly className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500" />
+              <input value={formState.mobileNumber} onChange={(event) => setFormState((prev) => ({ ...prev, mobileNumber: event.target.value.replace(/\D/g, "") }))} placeholder="Mobile number" className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
+            </div>
             <input value={formState.email} onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))} placeholder="Email" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
             <input value={formState.address} onChange={(event) => setFormState((prev) => ({ ...prev, address: event.target.value }))} placeholder="Address" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
             <select value={formState.preferredLanguage} onChange={(event) => setFormState((prev) => ({ ...prev, preferredLanguage: event.target.value }))} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm">
@@ -111,7 +143,7 @@ export const MyLeads = () => {
           </div>
           <button
             onClick={() => createLeadMutation.mutate(formState)}
-            disabled={!formState.name || !formState.phone || createLeadMutation.isPending}
+            disabled={!formState.name || !formState.mobileNumber || createLeadMutation.isPending}
             className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
           >
             {createLeadMutation.isPending ? "Creating..." : "Create lead"}
