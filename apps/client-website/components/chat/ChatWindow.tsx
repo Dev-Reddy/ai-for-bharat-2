@@ -67,6 +67,21 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     });
   };
 
+  const hydrateThreadState = async (targetThreadId: string) => {
+    const result = await getPublicThreadMessages(targetThreadId);
+    setThreadStatus(result.thread.status);
+    setMessages((previous) => {
+      const byId = new Map(previous.map((message) => [message.id, message]));
+      for (const message of result.messages.map(normalizeMessage)) {
+        byId.set(message.id, message);
+      }
+      return [...byId.values()].sort(
+        (a, b) =>
+          new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
+      );
+    });
+  };
+
   useEffect(() => {
     if (!chatThreadId) {
       router.replace("/");
@@ -77,11 +92,9 @@ export function ChatWindow({ threadId }: { threadId: string }) {
     const supabase = getSupabaseClient();
     setIsLoadingThread(true);
 
-    getPublicThreadMessages(chatThreadId)
-      .then((result) => {
+    hydrateThreadState(chatThreadId)
+      .then(() => {
         if (!isActive) return;
-        setThreadStatus(result.thread.status);
-        setMessages(result.messages.map(normalizeMessage));
       })
       .finally(() => {
         if (isActive) {
@@ -145,8 +158,16 @@ export function ChatWindow({ threadId }: { threadId: string }) {
       )
       .subscribe();
 
+    const pollInterval = setInterval(() => {
+      if (!isActive) return;
+      void hydrateThreadState(chatThreadId).catch(() => {
+        // Keep realtime + optimistic UI active even when polling request fails.
+      });
+    }, 1800);
+
     return () => {
       isActive = false;
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [chatThreadId, router]);
@@ -187,6 +208,17 @@ export function ChatWindow({ threadId }: { threadId: string }) {
         const serverUserMessage = normalizeMessage(result.userMessage as any);
         setMessages((previous) => previous.filter((message) => message.id !== optimisticId));
         applyIncomingMessage(serverUserMessage);
+      }
+      if (result.assistantMessage) {
+        applyIncomingMessage({
+          id: result.assistantMessage.id,
+          role: "assistant",
+          content: result.assistantMessage.messageText,
+          sentAt: new Date().toISOString(),
+          metadata: {
+            streaming: false,
+          },
+        });
       }
       if (result.conversationComplete) {
         setThreadStatus("completed");
@@ -317,6 +349,7 @@ export function ChatWindow({ threadId }: { threadId: string }) {
           <button
             onClick={() => void handleSend()}
             disabled={!inputValue.trim() || isAssistantStreaming || isSubmitting || threadStatus === "completed"}
+            aria-label="Send message"
             className="absolute right-16 bottom-2 p-2 rounded-full text-white bg-[#0ea5e9] hover:bg-[#0284c7] disabled:bg-gray-300 disabled:text-gray-500 transition-colors shadow-sm"
           >
             <Send className="w-4 h-4 ml-0.5" />

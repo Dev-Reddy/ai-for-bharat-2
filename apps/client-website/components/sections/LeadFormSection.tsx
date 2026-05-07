@@ -45,7 +45,9 @@ export function LeadFormSection() {
       toast.success("Lead created successfully.");
 
       if (result.callThread) {
-        router.push("/voice");
+        // Don't navigate to the `/voice` page (server function returns 500).
+        // Instead show a toast confirming we'll reach out for the call.
+        toast.success("Thanks — we will reach out to you shortly to set up the call.");
       } else {
         router.push(`/chat/${result.chatThread?.id}`);
       }
