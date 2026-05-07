@@ -15,7 +15,7 @@ export function HeroSection() {
         </div>
         
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-[#0f172a] mb-6">
-          Grow your wealth network with <span className="text-[#0ea5e9]">FinPartner Pro</span>
+          Grow your wealth network with <span className="text-[#0ea5e9]">LeadOS Client Portal</span>
         </h1>
         
         <p className="text-xl md:text-2xl text-[#475569] mb-10 max-w-3xl mx-auto leading-relaxed">

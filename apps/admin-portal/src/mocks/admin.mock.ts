@@ -2,8 +2,8 @@ import { Lead, User, ClientData, Conversation, Campaign, FollowUp, KnowledgeDocu
 
 export const MOCK_CLIENT: ClientData = {
   id: "client_1",
-  name: "FinPartner Pro",
-  slug: "finpartnerpro",
+  name: "LeadOS Admin Portal",
+  slug: "leados-admin-portal",
 };
 
 export const MOCK_ADMIN: User = {
@@ -244,4 +244,3 @@ export const MOCK_FEEDBACK: Feedback[] = [
     createdAt: "2026-05-02T11:00:00Z"
   }
 ];
-

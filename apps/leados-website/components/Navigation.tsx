@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { APP_URLS } from '@/lib/app-urls';
 
@@ -23,9 +24,7 @@ export default function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <div className="flex-shrink-0 flex items-center">
             <Link href="/" className="font-display font-bold text-xl tracking-tight flex items-center gap-2 text-text-1">
-              <div className="w-8 h-8 rounded-lg bg-accent-primary flex items-center justify-center">
-                <div className="w-4 h-4 bg-bg-primary rounded-sm rotate-45"></div>
-              </div>
+              <Image src="/LeadOS_Logo.jpg" alt="LeadOS logo" width={32} height={32} className="rounded-lg object-cover" />
               LeadOS
             </Link>
           </div>

@@ -1,4 +1,3 @@
-
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { LayoutDashboard, Users, Clock, LogOut } from 'lucide-react';
@@ -20,8 +19,8 @@ export const RMLayout = ({ children }: { children: ReactNode }) => {
       <aside className="w-64 bg-[#0F172A] text-slate-300 flex flex-col shrink-0">
         <div className="p-6 border-b border-slate-800">
           <h1 className="text-xl font-black text-white italic flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-xs not-italic">L</div>
-            LeadOS
+            <img src="/LeadOS_Logo.jpg" alt="LeadOS logo" className="w-8 h-8 rounded object-cover not-italic" />
+            <span className="not-italic">LeadOS RM</span>
           </h1>
         </div>
         <nav className="flex-1 p-4 space-y-1">

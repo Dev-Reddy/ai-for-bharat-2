@@ -57,8 +57,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#0B0F14] px-4">
       <Card className="w-full max-w-md shadow-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
         <CardHeader className="space-y-1">
+          <img src="/LeadOS_Logo.jpg" alt="LeadOS logo" className="mx-auto h-16 w-16 rounded-2xl object-cover shadow-sm" />
           <CardTitle className="text-2xl font-semibold tracking-tight text-center text-zinc-900 dark:text-zinc-100">
-            LeadOS Admin
+            LeadOS Admin Portal
           </CardTitle>
           <CardDescription className="text-center text-zinc-500 dark:text-zinc-400">
             Enter your credentials to access the portal

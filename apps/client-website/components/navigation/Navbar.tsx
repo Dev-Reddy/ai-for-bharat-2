@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Target, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Navbar() {
@@ -47,11 +48,9 @@ export function Navbar() {
           onClick={closeMobileMenu}
           className="flex items-center gap-2 group"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0f172a] to-[#1e293b] text-white shadow-md group-hover:shadow-lg transition-all duration-300">
-            <Target className="h-5 w-5 text-[#0ea5e9]" />
-          </div>
+          <Image src="/LeadOS_Logo.jpg" alt="LeadOS logo" width={40} height={40} className="rounded-xl object-cover shadow-md group-hover:shadow-lg transition-all duration-300" />
           <span className="text-xl font-bold tracking-tight text-[#0f172a]">
-            FinPartner<span className="text-[#0ea5e9]">.</span>
+            LeadOS Client Portal
           </span>
         </Link>
 

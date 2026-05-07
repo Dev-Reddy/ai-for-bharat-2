@@ -4,8 +4,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/navigation/Navbar";
 
 export const metadata: Metadata = {
-  title: 'FinPartner Pro',
-  description: 'Premium finance partner platform',
+  title: 'LeadOS Client Portal',
+  description: 'Client-facing LeadOS portal for partner onboarding and AI support.',
+  icons: {
+    icon: '/LeadOS_Logo.jpg',
+    shortcut: '/LeadOS_Logo.jpg',
+    apple: '/LeadOS_Logo.jpg',
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

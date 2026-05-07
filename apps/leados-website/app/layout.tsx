@@ -8,8 +8,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'LeadOS | Convert More Leads with AI',
+  title: 'LeadOS Marketing Website',
   description: 'The premium SaaS platform for AI-driven lead conversion and relationship management.',
+  icons: {
+    icon: '/LeadOS_Logo.jpg',
+    shortcut: '/LeadOS_Logo.jpg',
+    apple: '/LeadOS_Logo.jpg',
+  },
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

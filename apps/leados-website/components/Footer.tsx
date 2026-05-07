@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { APP_URLS } from "@/lib/app-urls";
 
 export default function Footer() {
@@ -7,9 +8,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-8 border-b border-border-subtle pb-8">
         <div className="flex flex-col text-left">
           <Link href="/" className="font-display font-semibold text-xl tracking-tight flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 rounded bg-text-1 flex items-center justify-center">
-              <span className="text-bg-primary font-bold text-xs leading-none select-none">L</span>
-            </div>
+            <Image src="/LeadOS_Logo.jpg" alt="LeadOS logo" width={24} height={24} className="rounded object-cover" />
             LeadOS
           </Link>
           <p className="text-sm font-medium text-text-1 max-w-xs mb-1">

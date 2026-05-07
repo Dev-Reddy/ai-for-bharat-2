@@ -43,10 +43,8 @@ export const Login = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
       <div className="max-w-md w-full">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-xl shadow-blue-200 mb-4 text-white text-2xl font-black italic">
-            L
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">LeadOS</h1>
+          <img src="/LeadOS_Logo.jpg" alt="LeadOS logo" className="inline-block w-16 h-16 rounded-2xl shadow-xl shadow-slate-200 mb-4 object-cover" />
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">LeadOS RM Portal</h1>
           <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-2">Relationship Manager Portal</p>
         </div>
 
@@ -103,7 +101,7 @@ export const Login = () => {
         </div>
 
         <p className="text-center mt-8 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-          LeadOS Lead Conversion OS v1.0
+          LeadOS Relationship Manager Workspace
         </p>
       </div>
     </div>

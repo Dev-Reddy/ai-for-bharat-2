@@ -78,8 +78,8 @@ export default function AdminLayout() {
   const SidebarContent = () => (
     <div className="flex h-full w-full flex-col bg-[#111827] text-gray-200 border-r border-gray-200 dark:border-gray-700">
       <div className="flex h-14 items-center shrink-0 px-4 font-bold text-white tracking-tight border-b border-gray-700 gap-2">
-        <div className="w-6 h-6 bg-gradient-to-tr from-gray-700 to-gray-900 rounded-md" />
-        LeadOS
+        <img src="/LeadOS_Logo.jpg" alt="LeadOS logo" className="h-7 w-7 rounded-md object-cover" />
+        <span>LeadOS Admin</span>
       </div>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-1 px-2">
@@ -131,7 +131,7 @@ export default function AdminLayout() {
               </SheetContent>
             </Sheet>
               <div className="text-sm font-medium text-gray-500 dark:text-gray-400 hidden sm:block">
-              FinPartner Pro
+              LeadOS Admin Portal
               </div>
           </div>
           
