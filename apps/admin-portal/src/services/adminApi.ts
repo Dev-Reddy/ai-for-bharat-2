@@ -1,5 +1,13 @@
-import { MOCK_ADMIN, MOCK_CLIENT, MOCK_LEADS, MOCK_RMS, MOCK_CONVERSATIONS, MOCK_CAMPAIGNS, MOCK_FOLLOWUPS, MOCK_KNOWLEDGE_DOCS, MOCK_FEEDBACK } from "../mocks/admin.mock";
-import { Lead, User } from "../types/admin.types";
+import {
+  MOCK_LEADS,
+  MOCK_RMS,
+  MOCK_CONVERSATIONS,
+  MOCK_CAMPAIGNS,
+  MOCK_FOLLOWUPS,
+  MOCK_KNOWLEDGE_DOCS,
+  MOCK_FEEDBACK,
+} from "../mocks/admin.mock";
+import { AnalysisSystemContext, Lead, User } from "../types/admin.types";
 import { supabase } from "../lib/supabase";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,9 +48,7 @@ function mapLeadFromBackend(raw: any): Lead {
     typeof raw.interestLevelScore === "number" &&
     typeof raw.readinessToSignupScore === "number" &&
     typeof raw.networkSizeScore === "number"
-      ? Math.round(
-          (raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore) / 3,
-        )
+      ? Math.round(raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore)
       : 0;
 
   const status =
@@ -52,7 +58,7 @@ function mapLeadFromBackend(raw: any): Lead {
         ? "converted"
         : raw.contactStatus === "pending"
           ? "pending_contact"
-          : raw.preferredContactMethod === "call_under_5_min"
+      : raw.preferredContactMethod === "call_under_5_min"
             ? "follow_up_scheduled"
             : "conversation_completed";
 
@@ -102,11 +108,11 @@ let memorySettings = {
 
 export const adminApi = {
   getSettings: async () => {
-    await delay(200);
+    await delay(100);
     return { data: { ...memorySettings } };
   },
   updateSettings: async (newSettings: Partial<typeof memorySettings>) => {
-    await delay(400);
+    await delay(100);
     memorySettings = { ...memorySettings, ...newSettings };
     return { data: { ...memorySettings }, message: "Settings updated successfully" };
   },
@@ -115,40 +121,31 @@ export const adminApi = {
   },
 
   async getAdminDashboardOverview(period: "daily" | "weekly" | "monthly" | "all_time" = "all_time") {
-    await delay(500);
-    // Simulate dynamic data based on period
-    const multiplier = period === "daily" ? 1 : period === "weekly" ? 5 : period === "monthly" ? 20 : 50;
-    
+    const [overview, funnel, classificationBreakdown, languageBreakdown, objectionBreakdown] = await Promise.all([
+      apiRequest(`/analytics/overview?period=${period}`, { method: "GET" }),
+      apiRequest(`/analytics/funnel?period=${period}`, { method: "GET" }),
+      apiRequest(`/analytics/classification-breakdown?period=${period}`, { method: "GET" }),
+      apiRequest(`/analytics/language-breakdown?period=${period}`, { method: "GET" }),
+      apiRequest(`/analytics/objection-breakdown?period=${period}`, { method: "GET" }),
+    ]);
+
+    const breakdownMap = Object.fromEntries(
+      (classificationBreakdown as Array<any>).map((item) => [item.key, item.value]),
+    );
+
     return {
       success: true,
       data: {
         overview: {
-          totalLeads: 5 * multiplier,
-          conversationCompleted: 3 * multiplier,
-          hot: 1 * multiplier,
-          warm: 2 * multiplier,
-          cold: 2 * multiplier,
-          assignedToRm: 1 * multiplier,
-          followUpsScheduled: 2 * multiplier,
-          converted: Math.floor(0.5 * multiplier),
+          ...overview.overview,
+          hot: breakdownMap.hot ?? 0,
+          warm: breakdownMap.warm ?? 0,
+          cold: breakdownMap.cold ?? 0,
         },
-        funnel: [
-          { stage: "new", label: "New", count: 5 * multiplier },
-          { stage: "conversation_completed", label: "Conversation Completed", count: 3 * multiplier },
-          { stage: "assigned_to_rm", label: "Assigned to RM", count: 1 * multiplier },
-          { stage: "follow_up_scheduled", label: "Follow Up Scheduled", count: 2 * multiplier },
-          { stage: "converted", label: "Converted", count: Math.floor(0.5 * multiplier) },
-        ],
-        languageStats: [
-          { language: "Hindi", count: 2 * multiplier },
-          { language: "English", count: 1 * multiplier },
-          { language: "Hinglish", count: 2 * multiplier },
-        ],
-        objectionStats: [
-          { type: "Existing Broker", count: 14 * multiplier, resolved: 10 * multiplier, unresolved: 4 * multiplier },
-          { type: "Not Enough Contacts", count: 9 * multiplier, resolved: 6 * multiplier, unresolved: 3 * multiplier },
-          { type: "Trust Concern", count: 6 * multiplier, resolved: 4 * multiplier, unresolved: 2 * multiplier },
-        ],
+        funnel,
+        classificationBreakdown,
+        languageStats: languageBreakdown,
+        objectionStats: objectionBreakdown,
       },
     };
   },
@@ -211,44 +208,27 @@ export const adminApi = {
               }
             : null,
         messages,
-        score: {
-          id: `score_${lead.id}`,
-          classification: lead.classification,
-          totalScore: lead.latestScore,
-          readinessScore: data.lead.readinessToSignupScore ?? 0,
-          engagementScore: data.lead.interestLevelScore ?? 0,
-          fitScore: data.lead.networkSizeScore ?? 0,
-          reason: data.lead.reason ?? "Lead analysis pending.",
-          recommendedNextAction:
-            data.lead.recommendedNextAction ?? "Review the lead and decide the next step.",
-          positiveSignals: data.lead.topicsCovered ?? [],
-          negativeSignals: [],
-          objections: (data.lead.objections ?? []).map((objection: string) => ({
-            type: objection,
-            status: "captured",
-            leadStatement: objection,
-            aiResponseSummary: lead.latestSummary ?? "See transcript for details.",
-          })),
-        },
-        rmTask: lead.assignedRm
+        score: data.latestScore
           ? {
-              id: `task_${lead.id}`,
-              status: lead.status === "converted" ? "converted" : "pending",
-              priority: lead.classification === "hot" ? "high" : "normal",
-              recommendedAction:
-                data.lead.recommendedNextAction ?? "Follow up with this lead.",
-              suggestedOpeningLine:
-                data.lead.handoffSummary ??
-                "Continue naturally from the AI conversation summary.",
+              id: data.latestScore.id,
+              classification: data.latestScore.classification,
+              totalScore: Math.round(data.latestScore.totalScore),
+              readinessScore: Math.round(data.latestScore.readinessToSignupScore),
+              engagementScore: Math.round(data.latestScore.interestLevelScore),
+              fitScore: Math.round(data.latestScore.networkSizeScore),
+              reason: data.latestScore.reason,
+              detectedLanguage: data.latestScore.detectedLanguage,
+              recommendedNextAction:
+                data.latestScore.recommendedNextAction ?? "Review the lead and decide the next step.",
+              positiveSignals: data.latestScore.topicsCovered ?? [],
+              negativeSignals: [],
+              objections: data.latestScore.objections ?? [],
+              suggestedOpeningLine: data.latestScore.suggestedOpeningLine ?? "",
+              handoffSummary: data.latestScore.handoffSummary ?? "",
             }
           : null,
-        followUp: data.latestCallThread
-          ? {
-              id: data.latestCallThread.id,
-              status: data.latestCallThread.status,
-              transcript: data.latestCallThread.transcript,
-            }
-          : null,
+        rmTask: data.latestRmTask ?? null,
+        followUp: data.latestFollowUp ?? null,
       },
     };
   },
@@ -281,6 +261,14 @@ export const adminApi = {
       body: JSON.stringify({ assignedRmId: rmId }),
     });
     return { success: true };
+  },
+
+  async scheduleLeadCall(leadId: string) {
+    const data = await apiRequest(`/leads/${leadId}/schedule-call`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    return { success: true, data };
   },
 
   async getUsers(params: any = {}) {
@@ -370,54 +358,91 @@ export const adminApi = {
   },
 
   async getFollowUps(params: any = {}) {
-    await delay(400);
-    return { success: true, data: memoryFollowUps, pagination: { page: 1, limit: 20, total: memoryFollowUps.length, totalPages: 1 } };
+    const [data, leadsData] = await Promise.all([
+      apiRequest("/follow-ups", { method: "GET" }),
+      apiRequest("/leads", { method: "GET" }),
+    ]);
+    const leads = new Map(
+      (Array.isArray(leadsData) ? leadsData : []).map((lead: any) => [lead.id, mapLeadFromBackend(lead)]),
+    );
+    return {
+      success: true,
+      data: (Array.isArray(data) ? data : []).map((item: any) => {
+        const lead = leads.get(item.leadId);
+        return {
+          ...item,
+          lead: lead
+            ? {
+                id: lead.id,
+                name: lead.name,
+                phone: lead.phone,
+                classification: lead.classification,
+              }
+            : {
+                id: item.leadId,
+                name: "Unknown Lead",
+                phone: "",
+                classification: "warm",
+              },
+        };
+      }),
+      pagination: { page: 1, limit: 20, total: Array.isArray(data) ? data.length : 0, totalPages: 1 },
+    };
   },
 
   async syncFollowUps() {
-    await delay(800);
-    // Simulate updating timestamps and statuses
-    memoryFollowUps = memoryFollowUps.map(f => ({
-      ...f,
-      status: Math.random() > 0.5 ? "sent" : "ready",
-      createdAt: new Date().toISOString()
-    }));
+    await delay(200);
     return { success: true };
   },
 
   async updateFollowUpStatus(followUpId: string, status: string) {
-    await delay(300);
-    memoryFollowUps = memoryFollowUps.map(f => f.id === followUpId ? { ...f, status: status as any } : f);
-    return { success: true };
+    const data = await apiRequest(`/follow-ups/${followUpId}/open-link`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+    return { success: true, data };
   },
 
   async getKnowledgeDocuments(params: any = {}) {
-    await delay(300);
-    return { success: true, data: memoryKnowledgeDocs, pagination: { page: 1, limit: 20, total: memoryKnowledgeDocs.length, totalPages: 1 } };
+    const data = await apiRequest("/knowledge-documents", { method: "GET" });
+    return {
+      success: true,
+      data: data as any[],
+      pagination: { page: 1, limit: 20, total: Array.isArray(data) ? data.length : 0, totalPages: 1 },
+    };
   },
   
   async addKnowledgeDocument(payload: any) {
-    await delay(400);
-    const newDoc = {
-      id: "doc_" + Date.now(),
-      title: payload.title,
-      type: payload.type,
-      isActive: true,
-      updatedAt: new Date().toISOString()
-    };
-    memoryKnowledgeDocs = [newDoc, ...memoryKnowledgeDocs];
-    return { success: true, data: newDoc };
+    const data = await apiRequest("/knowledge-documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: payload.title,
+        type: payload.type,
+        content: payload.content,
+        sourceFileName: payload.fileName,
+        isActive: true,
+      }),
+    });
+    return { success: true, data };
   },
 
   async updateKnowledgeDocument(id: string, payload: any) {
-    await delay(400);
-    memoryKnowledgeDocs = memoryKnowledgeDocs.map(doc => doc.id === id ? { ...doc, title: payload.title, type: payload.type, updatedAt: new Date().toISOString() } : doc);
-    return { success: true };
+    const data = await apiRequest(`/knowledge-documents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: payload.title,
+        type: payload.type,
+        content: payload.content,
+        sourceFileName: payload.fileName,
+      }),
+    });
+    return { success: true, data };
   },
 
   async deleteKnowledgeDocument(id: string) {
-    await delay(400);
-    memoryKnowledgeDocs = memoryKnowledgeDocs.filter(doc => doc.id !== id);
+    await apiRequest(`/knowledge-documents/${id}`, {
+      method: "DELETE",
+    });
     return { success: true };
   },
 
@@ -486,7 +511,52 @@ export const adminApi = {
   },
 
   async getRmPerformance() {
-    await delay(400);
-    return { success: true, data: memoryRMs };
+    const data = await apiRequest("/analytics/rm-performance", { method: "GET" });
+    return { success: true, data: data as User[] };
+  },
+
+  async getAnalysisSystemContexts() {
+    const data = await apiRequest("/analysis-system-contexts", { method: "GET" });
+    return { success: true, data: data as AnalysisSystemContext[] };
+  },
+
+  async createAnalysisSystemContext(payload: {
+    name: string;
+    description?: string;
+    promptTemplate: string;
+  }) {
+    const data = await apiRequest("/analysis-system-contexts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return { success: true, data: data as AnalysisSystemContext };
+  },
+
+  async updateAnalysisSystemContext(id: string, payload: Partial<{
+    name: string;
+    description: string;
+    promptTemplate: string;
+  }>) {
+    const data = await apiRequest(`/analysis-system-contexts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    return { success: true, data: data as AnalysisSystemContext };
+  },
+
+  async activateAnalysisSystemContext(id: string) {
+    const data = await apiRequest(`/analysis-system-contexts/${id}/activate`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    return { success: true, data: data as AnalysisSystemContext };
+  },
+
+  async runLeadAnalysis(leadId: string) {
+    const data = await apiRequest(`/leads/${leadId}/run-analysis`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    return { success: true, data };
   }
 };

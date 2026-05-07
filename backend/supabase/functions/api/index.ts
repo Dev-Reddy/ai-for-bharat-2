@@ -26,6 +26,27 @@ import {
   handlePublicLeadCreate,
   handleThreadMessages,
 } from "./lead-routes.ts";
+import {
+  handleAnalysisSystemContextsActivate,
+  handleAnalysisSystemContextsCreate,
+  handleAnalysisSystemContextsList,
+  handleAnalysisSystemContextsUpdate,
+  handleAnalyticsClassificationBreakdown,
+  handleAnalyticsFunnel,
+  handleAnalyticsLanguageBreakdown,
+  handleAnalyticsObjectionBreakdown,
+  handleAnalyticsOverview,
+  handleAnalyticsRmPerformance,
+  handleFollowUpOpenLink,
+  handleFollowUpsList,
+  handleKnowledgeDocumentsCreate,
+  handleKnowledgeDocumentsDelete,
+  handleKnowledgeDocumentsList,
+  handleKnowledgeDocumentsUpdate,
+  handleLeadScoreDetail,
+  handleRmTasksList,
+  handleRunLeadAnalysis,
+} from "./theme7-routes.ts";
 
 function notFound() {
   return failure("NOT_FOUND", "Route not found.", 404);
@@ -146,6 +167,120 @@ Deno.serve(async (request) => {
     }
 
     if (
+      resource === "analysis-system-contexts" &&
+      request.method === "GET" &&
+      !id
+    ) {
+      return await handleAnalysisSystemContextsList(request);
+    }
+
+    if (
+      resource === "analysis-system-contexts" &&
+      request.method === "POST" &&
+      !id
+    ) {
+      return await handleAnalysisSystemContextsCreate(request);
+    }
+
+    if (
+      resource === "analysis-system-contexts" &&
+      request.method === "PATCH" &&
+      id
+    ) {
+      return await handleAnalysisSystemContextsUpdate(request, id);
+    }
+
+    if (
+      resource === "analysis-system-contexts" &&
+      id &&
+      third === "activate" &&
+      request.method === "POST"
+    ) {
+      return await handleAnalysisSystemContextsActivate(request, id);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "overview" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsOverview(request);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "funnel" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsFunnel(request);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "classification-breakdown" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsClassificationBreakdown(request);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "language-breakdown" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsLanguageBreakdown(request);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "objection-breakdown" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsObjectionBreakdown(request);
+    }
+
+    if (
+      resource === "analytics" &&
+      id === "rm-performance" &&
+      request.method === "GET"
+    ) {
+      return await handleAnalyticsRmPerformance(request);
+    }
+
+    if (resource === "follow-ups" && request.method === "GET" && !id) {
+      return await handleFollowUpsList(request);
+    }
+
+    if (
+      resource === "follow-ups" &&
+      id &&
+      third === "open-link" &&
+      request.method === "POST"
+    ) {
+      return await handleFollowUpOpenLink(request, id);
+    }
+
+    if (resource === "rm-tasks" && request.method === "GET" && !id) {
+      return await handleRmTasksList(request);
+    }
+
+    if (resource === "knowledge-documents" && request.method === "GET" && !id) {
+      return await handleKnowledgeDocumentsList(request);
+    }
+
+    if (resource === "knowledge-documents" && request.method === "POST" && !id) {
+      return await handleKnowledgeDocumentsCreate(request);
+    }
+
+    if (resource === "knowledge-documents" && request.method === "PATCH" && id) {
+      return await handleKnowledgeDocumentsUpdate(request, id);
+    }
+
+    if (resource === "knowledge-documents" && request.method === "DELETE" && id) {
+      return await handleKnowledgeDocumentsDelete(request, id);
+    }
+
+    if (
       resource === "leads" &&
       id &&
       third === "assign-rm" &&
@@ -161,6 +296,24 @@ Deno.serve(async (request) => {
       request.method === "POST"
     ) {
       return await handleLeadScheduleCall(request, id);
+    }
+
+    if (
+      resource === "leads" &&
+      id &&
+      third === "score" &&
+      request.method === "GET"
+    ) {
+      return await handleLeadScoreDetail(request, id);
+    }
+
+    if (
+      resource === "leads" &&
+      id &&
+      third === "run-analysis" &&
+      request.method === "POST"
+    ) {
+      return await handleRunLeadAnalysis(request, id);
     }
 
     if (

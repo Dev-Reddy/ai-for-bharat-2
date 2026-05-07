@@ -102,9 +102,76 @@ export interface FollowUp {
 export interface KnowledgeDocument {
   id: string;
   title: string;
-  type: "Script" | "FAQ" | "Onboarding" | "Objection Guide";
+  content?: string;
+  type: string;
+  source?: string | null;
+  sourceFileName?: string | null;
   isActive: boolean;
+  metadata?: Record<string, unknown>;
+  chunkCount?: number;
+  createdAt?: string;
   updatedAt: string;
+}
+
+export interface LeadObjection {
+  type: string;
+  leadStatement: string;
+  status: "resolved" | "partially_resolved" | "unresolved";
+  aiResponseSummary: string;
+}
+
+export interface LeadScore {
+  id: string;
+  classification: LeadClassification;
+  interestLevelScore: number;
+  readinessToSignupScore: number;
+  networkSizeScore: number;
+  totalScore: number;
+  reason: string;
+  detectedLanguage?: string | null;
+  durationSeconds?: number | null;
+  topicsCovered: string[];
+  objections: LeadObjection[];
+  recommendedNextAction?: string | null;
+  handoffSummary?: string | null;
+  overallSummary?: string | null;
+  suggestedOpeningLine?: string | null;
+  createdAt: string;
+}
+
+export interface AnalysisSystemContext {
+  id: string;
+  name: string;
+  description?: string | null;
+  promptTemplate: string;
+  outputSchema: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RmTask {
+  id: string;
+  leadId: string;
+  leadScoreId: string;
+  assignedRmId?: string | null;
+  priority: "high" | "normal" | "low";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  recommendedAction: string;
+  suggestedOpeningLine?: string | null;
+  summary?: string | null;
+  createdAt: string;
+}
+
+export interface FollowUpRecord {
+  id: string;
+  leadId: string;
+  leadScoreId: string;
+  channel: "whatsapp";
+  status: "ready" | "opened" | "cancelled";
+  message: string;
+  waMeLink?: string | null;
+  createdAt: string;
 }
 
 export interface Feedback {

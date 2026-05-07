@@ -1,263 +1,258 @@
-import { useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminApi } from "../../../services/adminApi";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { adminApi } from "../../../services/adminApi";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { CheckCircle2, FileText, Sparkles } from "lucide-react";
 
-const settingsSchema = z.object({
-  clientName: z.string().min(1, "Required"),
-  workspaceId: z.string().min(1, "Required"),
-  supportedLanguages: z.string().min(1, "Required"),
-  scoringHot: z.string().min(1, "Required"),
-  scoringWarm: z.string().min(1, "Required"),
-  scoringCold: z.string().min(1, "Required"),
-  waTemplate: z.string().min(1, "Required"),
+const contextSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  promptTemplate: z.string().min(40, "Prompt should be descriptive"),
 });
+
+const defaultPrompt = `You are the transcript scoring engine for Rupeezy's Theme 7 AI Voice Agent for Partner Lead Conversion.
+
+Evaluate a completed chat or Vapi call transcript.
+Score the lead on:
+- interest level
+- readiness to sign up
+- network size
+
+Classify the lead as hot, warm, or cold.
+Return duration, detected language, topics covered, objections raised with status, recommended next action, RM handoff summary, and a short overall summary.
+
+Use only transcript evidence and approved Rupeezy AP partner program context.`;
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => adminApi.getSettings(),
+    queryKey: ["analysis-system-contexts"],
+    queryFn: adminApi.getAnalysisSystemContexts,
+  });
+
+  const contexts = data?.data ?? [];
+  const activeContext = useMemo(
+    () => contexts.find((context) => context.isActive) ?? null,
+    [contexts],
+  );
+
+  const createMutation = useMutation({
+    mutationFn: adminApi.createAnalysisSystemContext,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis-system-contexts"] });
+      reset({
+        name: "",
+        description: "",
+        promptTemplate: defaultPrompt,
+      });
+      toast.success("Scoring context saved");
+    },
+    onError: () => toast.error("Failed to save scoring context"),
   });
 
   const updateMutation = useMutation({
-    mutationFn: adminApi.updateSettings,
+    mutationFn: ({ id, payload }: { id: string; payload: z.infer<typeof contextSchema> }) =>
+      adminApi.updateAnalysisSystemContext(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      toast.success("Settings updated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["analysis-system-contexts"] });
+      setEditingId(null);
+      reset({
+        name: "",
+        description: "",
+        promptTemplate: defaultPrompt,
+      });
+      toast.success("Scoring context updated");
     },
-    onError: () => {
-      toast.error("Failed to update settings.");
-    }
+    onError: () => toast.error("Failed to update scoring context"),
   });
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
-    resolver: zodResolver(settingsSchema),
+  const activateMutation = useMutation({
+    mutationFn: adminApi.activateAnalysisSystemContext,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analysis-system-contexts"] });
+      toast.success("Active scoring context changed");
+    },
+    onError: () => toast.error("Failed to activate scoring context"),
+  });
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(contextSchema),
     defaultValues: {
-      clientName: "",
-      workspaceId: "",
-      supportedLanguages: "",
-      scoringHot: "",
-      scoringWarm: "",
-      scoringCold: "",
-      waTemplate: ""
-    }
+      name: "",
+      description: "",
+      promptTemplate: defaultPrompt,
+    },
   });
 
-  useEffect(() => {
-    if (data?.data) {
-      reset(data.data);
+  const onSubmit = (values: z.infer<typeof contextSchema>) => {
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload: values });
+      return;
     }
-  }, [data, reset]);
-
-  const onSubmit = (formData: any) => {
-    updateMutation.mutate(formData);
+    createMutation.mutate(values);
   };
 
-  if (isLoading) {
-    return <div className="p-6 text-center text-zinc-500 animate-pulse">Loading settings...</div>;
-  }
+  const startEdit = (context: any) => {
+    setEditingId(context.id);
+    reset({
+      name: context.name,
+      description: context.description ?? "",
+      promptTemplate: context.promptTemplate,
+    });
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-5xl pb-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Settings</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">System configuration and integration settings.</p>
-        </div>
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Transcript Scoring Settings</h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Theme 7 uses one active scoring context globally. This prompt controls how chat and call transcripts are analyzed.
+        </p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="mb-4 bg-zinc-100 dark:bg-[#1A2234]">
-          <TabsTrigger value="general" className="data-[state=active]:bg-white dark:data-[state=active]:bg-[#111827] data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-600 dark:text-zinc-400">General</TabsTrigger>
-          <TabsTrigger value="profile" className="data-[state=active]:bg-white dark:data-[state=active]:bg-[#111827] data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-600 dark:text-zinc-400">Profile</TabsTrigger>
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-white dark:data-[state=active]:bg-[#111827] data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-600 dark:text-zinc-400">Notifications</TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-white dark:data-[state=active]:bg-[#111827] data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-600 dark:text-zinc-400">Security</TabsTrigger>
-          <TabsTrigger value="apikeys" className="data-[state=active]:bg-white dark:data-[state=active]:bg-[#111827] data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-600 dark:text-zinc-400">API Keys</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
+          <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/60">
+            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              {editingId ? "Edit Scoring Context" : "Create Scoring Context"}
+            </CardTitle>
+            <CardDescription>
+              Keep the prompt tightly aligned to Theme 7 scoring: interest, readiness, network size, classification, objections, and handoff summary.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input {...register("name")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                {errors.name && <p className="text-xs text-red-500">{errors.name.message as string}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input {...register("description")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+              </div>
+              <div className="space-y-2">
+                <Label>Prompt Template</Label>
+                <Textarea
+                  {...register("promptTemplate")}
+                  className="min-h-[360px] bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800 font-mono text-sm"
+                />
+                {errors.promptTemplate && <p className="text-xs text-red-500">{errors.promptTemplate.message as string}</p>}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {editingId
+                    ? updateMutation.isPending ? "Updating..." : "Update Context"
+                    : createMutation.isPending ? "Saving..." : "Save Context"}
+                </Button>
+                {editingId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingId(null);
+                      reset({
+                        name: "",
+                        description: "",
+                        promptTemplate: defaultPrompt,
+                      });
+                    }}
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="general">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-              <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800/50">
-                <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Client Information</CardTitle>
-                <CardDescription className="text-zinc-500 dark:text-zinc-400">Basic info about your workspace</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-zinc-700 dark:text-zinc-300">Client Name</Label>
-                    <Input {...register("clientName")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                    {errors.clientName && <p className="text-xs text-red-500">{errors.clientName.message as string}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-zinc-700 dark:text-zinc-300">Workspace ID</Label>
-                    <Input {...register("workspaceId")} disabled className="bg-zinc-100 dark:bg-[#1A2234] text-zinc-500 dark:text-zinc-500 border-zinc-200 dark:border-zinc-800" />
-                  </div>
+        <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
+          <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/60">
+            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+              <FileText className="h-4 w-4 text-blue-500" />
+              Available Contexts
+            </CardTitle>
+            <CardDescription>
+              Exactly one context can be active. That active prompt is used for transcript scoring everywhere.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            {activeContext && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Active Context</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="mt-2 text-sm text-zinc-900 dark:text-zinc-100">{activeContext.name}</div>
+                {activeContext.description && (
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{activeContext.description}</p>
+                )}
+              </div>
+            )}
 
-            <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-              <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800/50">
-                <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">System Configuration</CardTitle>
-                <CardDescription className="text-zinc-500 dark:text-zinc-400">Core rules and logic for the CRM</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2 max-w-md">
-                    <Label className="text-zinc-700 dark:text-zinc-300">Supported Languages</Label>
-                    <Input {...register("supportedLanguages")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                     {errors.supportedLanguages && <p className="text-xs text-red-500">{errors.supportedLanguages.message as string}</p>}
-                  </div>
-                </div>
-                
-                <Separator className="bg-zinc-200 dark:bg-zinc-800" />
-                
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Scoring Thresholds</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] text-orange-500 font-semibold uppercase tracking-widest">Hot</Label>
-                      <Input {...register("scoringHot")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+            <Separator />
+
+            {isLoading ? (
+              <div className="text-sm text-zinc-500 animate-pulse">Loading scoring contexts...</div>
+            ) : contexts.length === 0 ? (
+              <div className="text-sm text-zinc-500">No scoring contexts yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {contexts.map((context) => (
+                  <div
+                    key={context.id}
+                    className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-[#0B0F14]"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-zinc-900 dark:text-zinc-100">{context.name}</h3>
+                          {context.isActive && (
+                            <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-none shadow-none">Active</Badge>
+                          )}
+                        </div>
+                        {context.description && (
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">{context.description}</p>
+                        )}
+                        <p className="line-clamp-4 text-xs text-zinc-500 dark:text-zinc-500 whitespace-pre-wrap">
+                          {context.promptTemplate}
+                        </p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] text-yellow-500 font-semibold uppercase tracking-widest">Warm</Label>
-                      <Input {...register("scoringWarm")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] text-cyan-500 font-semibold uppercase tracking-widest">Cold</Label>
-                      <Input {...register("scoringCold")} className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => startEdit(context)}>
+                        Edit
+                      </Button>
+                      {!context.isActive && (
+                        <Button
+                          size="sm"
+                          onClick={() => activateMutation.mutate(context.id)}
+                          disabled={activateMutation.isPending}
+                        >
+                          Use This Context
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </div>
-
-                <Separator className="bg-zinc-200 dark:bg-zinc-800" />
-
-                <div className="space-y-2">
-                  <Label className="text-zinc-700 dark:text-zinc-300">WhatsApp Warm Lead Follow-up Template</Label>
-                  <Textarea 
-                    {...register("waTemplate")}
-                    className="resize-none h-24 bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" 
-                  />
-                  {errors.waTemplate && <p className="text-xs text-red-500">{errors.waTemplate.message as string}</p>}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Saving..." : "Save Settings"}
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-
-        <TabsContent value="profile" className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/50">
-              <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Your Profile</CardTitle>
-              <CardDescription className="text-zinc-500 dark:text-zinc-400">Manage your personal details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 max-w-md pt-6">
-              <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">Full Name</Label>
-                <Input defaultValue="Admin User" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                ))}
               </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">Email</Label>
-                <Input defaultValue="admin@leados.com" disabled className="bg-zinc-100 dark:bg-[#1A2234] text-zinc-500 border-zinc-200 dark:border-zinc-800" />
-              </div>
-              <Button onClick={() => toast.success("Profile updated")}>Update Profile</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/50">
-              <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Email Notifications</CardTitle>
-              <CardDescription className="text-zinc-500 dark:text-zinc-400">Choose what alerts you receive</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base font-semibold text-zinc-900 dark:text-zinc-100">New Lead Alerts</Label>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Receive an email when a Hot lead drops</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Daily Summaries</Label>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Receive a daily breakdown of agent performance</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/50">
-              <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Security</CardTitle>
-              <CardDescription className="text-zinc-500 dark:text-zinc-400">Keep your account secure</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 max-w-md pt-6">
-              <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">Current Password</Label>
-                <Input type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">New Password</Label>
-                <Input type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-              </div>
-              <Button onClick={() => toast.success("Password changed")}>Update Password</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="apikeys" className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/50">
-              <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">API Configuration</CardTitle>
-              <CardDescription className="text-zinc-500 dark:text-zinc-400">Manage your third-party integrations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-               <div className="space-y-2 max-w-2xl">
-                 <Label className="text-zinc-700 dark:text-zinc-300">Twilio Account SID</Label>
-                 <Input defaultValue="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-               </div>
-               <div className="space-y-2 max-w-2xl">
-                 <Label className="text-zinc-700 dark:text-zinc-300">Twilio Auth Token</Label>
-                 <Input defaultValue="****************" type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-               </div>
-               <div className="space-y-2 max-w-2xl">
-                 <Label className="text-zinc-700 dark:text-zinc-300">WhatsApp Business API Token</Label>
-                 <Input defaultValue="EAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-               </div>
-               <div className="space-y-2 max-w-2xl">
-                 <Label className="text-zinc-700 dark:text-zinc-300">Google Gemini API Key</Label>
-                 <Input defaultValue="AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXX" type="password" className="bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
-               </div>
-               <Button onClick={() => toast.success("Keys updated")}>Save API Keys</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

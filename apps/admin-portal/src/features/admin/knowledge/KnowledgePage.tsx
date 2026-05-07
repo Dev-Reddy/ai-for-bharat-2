@@ -27,7 +27,7 @@ import { toast } from "sonner";
 const docSchema = z.object({
   title: z.string().min(1, "Title is required"),
   type: z.string().min(1, "Type is required"),
-  content: z.string().optional(),
+  content: z.string().min(20, "Paste the approved document content here"),
 });
 
 export default function KnowledgePage() {
@@ -79,7 +79,7 @@ export default function KnowledgePage() {
   });
 
   const handleEditClick = (doc: KnowledgeDocument) => {
-    reset({ title: doc.title, type: doc.type, content: "" });
+    reset({ title: doc.title, type: doc.type, content: doc.content || "" });
     setEditingDoc(doc);
     setUploadedFile(null);
   };
@@ -130,7 +130,7 @@ export default function KnowledgePage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Knowledge Base</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Documents used by AI to answer lead queries.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Documents used by AI during chat and scoring. Paste the source text here; Vapi upload is manual in this MVP.</p>
         </div>
 
         <Dialog open={isAddOpen || !!editingDoc} onOpenChange={(open) => {
@@ -166,7 +166,7 @@ export default function KnowledgePage() {
                 {errors.type && <p className="text-sm text-red-500">{errors.type.message as string}</p>}
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">File Upload (Optional)</Label>
+                <Label className="text-zinc-700 dark:text-zinc-300">File Name Hint (Optional)</Label>
                 <div 
                   className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg p-6 flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#0B0F14] hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
@@ -205,15 +205,16 @@ export default function KnowledgePage() {
                   ) : (
                     <>
                       <UploadCloud className="w-8 h-8 text-zinc-400 mb-2" />
-                      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Click to upload or drag and drop</p>
-                      <p className="text-xs text-zinc-500 mt-1">PDF, DOCX, TXT up to 10MB</p>
+                      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Attach a filename reference if useful</p>
+                      <p className="text-xs text-zinc-500 mt-1">The actual retrieval content comes from the text pasted below.</p>
                     </>
                   )}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-700 dark:text-zinc-300">Content (Text Fallback)</Label>
+                <Label className="text-zinc-700 dark:text-zinc-300">Content</Label>
                 <Textarea {...register("content")} placeholder="Paste knowledge here..." className="h-40 bg-zinc-50 dark:bg-[#0B0F14] border-zinc-200 dark:border-zinc-800" />
+                {errors.content && <p className="text-sm text-red-500">{errors.content.message as string}</p>}
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={addDocMutation.isPending || updateDocMutation.isPending} className="bg-gray-900 border border-gray-800 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900   text-white">

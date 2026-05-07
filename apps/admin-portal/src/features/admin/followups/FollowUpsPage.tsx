@@ -110,8 +110,8 @@ export default function FollowUpsPage() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="sent">Sent</SelectItem>
-              <SelectItem value="dismissed">Dismissed</SelectItem>
+              <SelectItem value="opened">Opened</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -159,8 +159,8 @@ export default function FollowUpsPage() {
                   <TableCell>
                     {f.status === 'ready' ? (
                       <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-none border-none hover:bg-gray-200 dark:hover:bg-gray-700/50">Ready to send</Badge>
-                    ) : f.status === 'sent' ? (
-                      <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 shadow-none border-none hover:bg-emerald-200 dark:hover:bg-emerald-900/50"><Check className="mr-1 h-3 w-3"/> Sent</Badge>
+                    ) : f.status === 'opened' ? (
+                      <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 shadow-none border-none hover:bg-emerald-200 dark:hover:bg-emerald-900/50"><Check className="mr-1 h-3 w-3"/> Opened</Badge>
                     ) : (
                       <Badge variant="outline">{f.status}</Badge>
                     )}
@@ -185,10 +185,10 @@ export default function FollowUpsPage() {
                       {f.status === 'ready' && (
                         <Button 
                           size="sm"
-                          onClick={() => updateStatusMutation.mutate({ id: f.id, status: 'sent' })}
+                          onClick={() => updateStatusMutation.mutate({ id: f.id, status: 'opened' })}
                           disabled={updateStatusMutation.isPending}
                         >
-                          Mark Sent
+                          Mark Opened
                         </Button>
                       )}
                     </div>

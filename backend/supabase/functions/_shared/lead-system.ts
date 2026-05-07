@@ -63,14 +63,24 @@ export const assignRmSchema = z.object({
 const analysisSchema = z.object({
   conversationComplete: z.boolean(),
   shouldScheduleFollowUpCall: z.boolean().default(false),
-  interestLevelScore: z.number().min(0).max(100),
-  readinessToSignupScore: z.number().min(0).max(100),
-  networkSizeScore: z.number().min(0).max(100),
+  interestLevelScore: z.number().min(0).max(35),
+  readinessToSignupScore: z.number().min(0).max(40),
+  networkSizeScore: z.number().min(0).max(25),
+  totalScore: z.number().min(0).max(100),
   finalInterestScore: z.enum(["hot", "warm", "cold"]),
+  detectedLanguage: z.string(),
   reason: z.string(),
-  objections: z.array(z.string()).default([]),
+  objections: z.array(
+    z.object({
+      type: z.string(),
+      leadStatement: z.string(),
+      status: z.enum(["resolved", "partially_resolved", "unresolved"]),
+      aiResponseSummary: z.string(),
+    }),
+  ).default([]),
   topicsCovered: z.array(z.string()).default([]),
   recommendedNextAction: z.string(),
+  suggestedOpeningLine: z.string(),
   handoffSummary: z.string(),
   overallSummary: z.string(),
 });
@@ -101,7 +111,7 @@ type LeadRow = {
   network_size_score: number | null;
   final_interest_score: "hot" | "warm" | "cold" | null;
   reason: string | null;
-  objections: string[] | null;
+  objections: Record<string, unknown>[] | null;
   topics_covered: string[] | null;
   recommended_next_action: string | null;
   handoff_summary: string | null;
@@ -159,6 +169,81 @@ type CallThreadRow = {
   updated_at: string;
 };
 
+type AnalysisSystemContextRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  prompt_template: string;
+  output_schema: Record<string, unknown> | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type LeadScoreRow = {
+  id: string;
+  lead_id: string;
+  source_type: "chat_thread" | "call_thread";
+  source_id: string;
+  analysis_system_context_id: string | null;
+  classification: "hot" | "warm" | "cold";
+  interest_level_score: number;
+  readiness_to_signup_score: number;
+  network_size_score: number;
+  total_score: number;
+  reason: string;
+  detected_language: string | null;
+  duration_seconds: number | null;
+  topics_covered: string[] | null;
+  objections: Record<string, unknown>[] | null;
+  recommended_next_action: string | null;
+  handoff_summary: string | null;
+  overall_summary: string | null;
+  suggested_opening_line: string | null;
+  raw_model_output: Record<string, unknown> | null;
+  created_at: string;
+};
+
+type RmTaskRow = {
+  id: string;
+  lead_id: string;
+  lead_score_id: string;
+  assigned_rm_id: string | null;
+  priority: "high" | "normal" | "low";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  recommended_action: string;
+  suggested_opening_line: string | null;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FollowUpRow = {
+  id: string;
+  lead_id: string;
+  lead_score_id: string;
+  channel: "whatsapp";
+  status: "ready" | "opened" | "cancelled";
+  message: string;
+  wa_me_link: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type KnowledgeDocumentRow = {
+  id: string;
+  title: string;
+  content: string;
+  source: string | null;
+  document_type: string;
+  source_file_name: string | null;
+  is_active: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const queryGraphState = Annotation.Root({
   userMessage: Annotation<string>({
     reducer: (_left, right) => right,
@@ -169,10 +254,6 @@ const queryGraphState = Annotation.Root({
     default: () => [],
   }),
   knowledgeSnippets: Annotation<string[]>({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-  memorySnippets: Annotation<string[]>({
     reducer: (_left, right) => right,
     default: () => [],
   }),
@@ -192,6 +273,26 @@ const analysisGraphState = Annotation.Root({
 let compiledQueryGraph: Promise<any> | null = null;
 let compiledAnalysisGraph: Promise<any> | null = null;
 let langGraphCheckpointer: Promise<unknown | undefined> | null = null;
+
+const analysisSystemContextInputSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  promptTemplate: z.string().min(1),
+  outputSchema: z.record(z.string(), z.unknown()).optional(),
+});
+
+const knowledgeDocumentSchema = z.object({
+  title: z.string().min(1),
+  type: z.string().min(1),
+  content: z.string().min(1),
+  sourceFileName: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const analysisSystemContextSchema = analysisSystemContextInputSchema;
+export const analysisSystemContextUpdateSchema = analysisSystemContextInputSchema.partial();
+export const knowledgeDocumentCreateSchema = knowledgeDocumentSchema;
+export const knowledgeDocumentUpdateSchema = knowledgeDocumentSchema.partial();
 
 function maybeString(value: string | undefined | null) {
   if (!value) return null;
@@ -277,6 +378,94 @@ function formatCallThread(callThread: CallThreadRow | null) {
   };
 }
 
+function formatAnalysisSystemContext(context: AnalysisSystemContextRow) {
+  return {
+    id: context.id,
+    name: context.name,
+    description: context.description,
+    promptTemplate: context.prompt_template,
+    outputSchema: context.output_schema ?? {},
+    isActive: context.is_active,
+    createdBy: context.created_by,
+    createdAt: context.created_at,
+    updatedAt: context.updated_at,
+  };
+}
+
+function formatLeadScore(score: LeadScoreRow) {
+  return {
+    id: score.id,
+    leadId: score.lead_id,
+    sourceType: score.source_type,
+    sourceId: score.source_id,
+    analysisSystemContextId: score.analysis_system_context_id,
+    classification: score.classification,
+    interestLevelScore: score.interest_level_score,
+    readinessToSignupScore: score.readiness_to_signup_score,
+    networkSizeScore: score.network_size_score,
+    totalScore: score.total_score,
+    reason: score.reason,
+    detectedLanguage: score.detected_language,
+    durationSeconds: score.duration_seconds,
+    topicsCovered: score.topics_covered ?? [],
+    objections: score.objections ?? [],
+    recommendedNextAction: score.recommended_next_action,
+    handoffSummary: score.handoff_summary,
+    overallSummary: score.overall_summary,
+    suggestedOpeningLine: score.suggested_opening_line,
+    rawModelOutput: score.raw_model_output ?? {},
+    createdAt: score.created_at,
+  };
+}
+
+function formatRmTask(task: RmTaskRow | null) {
+  if (!task) return null;
+  return {
+    id: task.id,
+    leadId: task.lead_id,
+    leadScoreId: task.lead_score_id,
+    assignedRmId: task.assigned_rm_id,
+    priority: task.priority,
+    status: task.status,
+    recommendedAction: task.recommended_action,
+    suggestedOpeningLine: task.suggested_opening_line,
+    summary: task.summary,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
+  };
+}
+
+function formatFollowUp(followUp: FollowUpRow | null) {
+  if (!followUp) return null;
+  return {
+    id: followUp.id,
+    leadId: followUp.lead_id,
+    leadScoreId: followUp.lead_score_id,
+    channel: followUp.channel,
+    status: followUp.status,
+    message: followUp.message,
+    waMeLink: followUp.wa_me_link,
+    createdAt: followUp.created_at,
+    updatedAt: followUp.updated_at,
+  };
+}
+
+function formatKnowledgeDocument(doc: KnowledgeDocumentRow, chunkCount = 0) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    content: doc.content,
+    type: doc.document_type,
+    source: doc.source,
+    sourceFileName: doc.source_file_name,
+    isActive: doc.is_active,
+    metadata: doc.metadata ?? {},
+    chunkCount,
+    createdAt: doc.created_at,
+    updatedAt: doc.updated_at,
+  };
+}
+
 async function getOptionalCheckpointer() {
   if (!env.langgraphPostgresUrl) {
     return undefined;
@@ -309,13 +498,9 @@ async function getQueryGraph() {
             ...state.refinedQueries,
           ]),
         }))
-        .addNode("loadMemories", async (state) => ({
-          memorySnippets: [],
-        }))
         .addEdge(START, "refineQueries")
         .addEdge("refineQueries", "loadKnowledge")
-        .addEdge("loadKnowledge", "loadMemories")
-        .addEdge("loadMemories", END);
+        .addEdge("loadKnowledge", END);
 
       const checkpointer = await getOptionalCheckpointer();
       return graph.compile(checkpointer ? { checkpointer } : undefined);
@@ -396,87 +581,12 @@ async function retrieveKnowledgeSnippets(queries: string[]) {
   return fallbackKnowledgeDocuments.map((doc) => `${doc.title}: ${doc.content}`);
 }
 
-async function searchLeadMemories(leadId: string, query: string) {
-  if (!env.mem0ApiKey) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(`${env.mem0BaseUrl}/v1/memories/search`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Token ${env.mem0ApiKey}`,
-      },
-      body: JSON.stringify({
-        query,
-        version: "v2",
-        filters: {
-          user_id: leadId,
-        },
-        top_k: 5,
-      }),
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = await response.json();
-    const entries = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.results)
-        ? payload.results
-        : Array.isArray(payload?.memories)
-          ? payload.memories
-          : [];
-
-    return entries
-      .map((entry: Record<string, unknown>) =>
-        String(entry.memory ?? entry.text ?? entry.content ?? ""),
-      )
-      .filter(Boolean);
-  } catch (_error) {
-    return [];
-  }
-}
-
-async function storeLeadMemory(leadId: string, content: string, metadata: Record<string, unknown>) {
-  if (!env.mem0ApiKey || !content.trim()) {
-    return;
-  }
-
-  try {
-    await fetch(`${env.mem0BaseUrl}/v1/memories`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Token ${env.mem0ApiKey}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "user",
-            content,
-          },
-        ],
-        user_id: leadId,
-        metadata,
-      }),
-    });
-  } catch (_error) {
-    // Memory persistence is best-effort for MVP.
-  }
-}
-
 function buildSystemPrompt({
   lead,
   knowledgeSnippets,
-  memorySnippets,
 }: {
   lead: LeadRow;
   knowledgeSnippets: string[];
-  memorySnippets: string[];
 }) {
   const language = lead.preferred_language ?? "English";
 
@@ -492,9 +602,6 @@ Goal:
 
 Core approved knowledge:
 ${knowledgeSnippets.map((snippet) => `- ${snippet}`).join("\n")}
-
-Prior lead memory:
-${memorySnippets.length ? memorySnippets.map((snippet) => `- ${snippet}`).join("\n") : "- none"}
 
 Rules:
 - never invent claims beyond the approved knowledge
@@ -523,7 +630,6 @@ async function generateChatReply({
   messages: MessageRow[];
   queryContext: {
     knowledgeSnippets: string[];
-    memorySnippets: string[];
   };
   threadId: string;
 }) {
@@ -558,7 +664,6 @@ async function generateChatReply({
     system: buildSystemPrompt({
       lead,
       knowledgeSnippets: queryContext.knowledgeSnippets,
-      memorySnippets: queryContext.memorySnippets,
     }),
     prompt: `Lead profile:\nName: ${lead.name}\nPhone: ${lead.phone}\nPreferred language: ${lead.preferred_language ?? "unknown"}\n\nConversation so far:\n${transcript}\n\nRespond to the latest user message naturally and keep it concise.`,
   });
@@ -598,12 +703,80 @@ async function generateChatReply({
   };
 }
 
-async function analyzeTranscript({
+async function getActiveAnalysisSystemContext() {
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("analysis_system_contexts")
+    .select("*")
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error("No active analysis system context configured.");
+  }
+
+  return data as AnalysisSystemContextRow;
+}
+
+function buildAnalysisPrompt({
   lead,
   transcript,
+  context,
+  durationSeconds,
 }: {
   lead: LeadRow;
   transcript: string;
+  context: AnalysisSystemContextRow;
+  durationSeconds: number | null;
+}) {
+  return `${context.prompt_template}
+
+Lead details:
+- Name: ${lead.name}
+- Preferred language: ${lead.preferred_language ?? "unknown"}
+- Preferred contact method: ${lead.preferred_contact_method}
+- Assigned RM: ${lead.assigned_rm?.name ?? "unassigned"}
+- Duration seconds: ${durationSeconds ?? 0}
+
+Transcript:
+${transcript}
+
+Return valid JSON only with these exact keys:
+- conversationComplete
+- shouldScheduleFollowUpCall
+- interestLevelScore
+- readinessToSignupScore
+- networkSizeScore
+- totalScore
+- finalInterestScore
+- detectedLanguage
+- reason
+- topicsCovered
+- objections
+- recommendedNextAction
+- suggestedOpeningLine
+- handoffSummary
+- overallSummary
+`;
+}
+
+async function analyzeTranscript({
+  lead,
+  transcript,
+  sourceType,
+  sourceId,
+  durationSeconds,
+}: {
+  lead: LeadRow;
+  transcript: string;
+  sourceType: "chat_thread" | "call_thread";
+  sourceId: string;
+  durationSeconds: number | null;
 }) {
   const analysisGraph = await getAnalysisGraph();
   const normalized = await analysisGraph.invoke(
@@ -614,37 +787,39 @@ async function analyzeTranscript({
       },
     },
   );
+  const context = await getActiveAnalysisSystemContext();
   const result = await generateObject({
     model: google(env.geminiModel),
     schema: analysisSchema,
-    prompt: `You are evaluating a lead conversion conversation for Rupeezy's AP partner program.
-
-Lead details:
-- Name: ${lead.name}
-- Preferred language: ${lead.preferred_language ?? "unknown"}
-- Preferred contact method: ${lead.preferred_contact_method}
-
-Transcript:
-${normalized.normalizedTranscript}
-
-Return:
-- whether the conversation is complete
-- whether an AI follow-up call should be scheduled
-- interest level score
-- readiness to signup score
-- network size score
-- final interest score hot/warm/cold
-- reason
-- objections
-- topics covered
-- recommended next action
-- handoff summary
-- overall summary
-
-Use interest level, readiness to sign up, and network size to determine the final lead classification.`,
+    prompt: buildAnalysisPrompt({
+      lead,
+      transcript: normalized.normalizedTranscript,
+      context,
+      durationSeconds,
+    }),
   });
 
-  return result.object;
+  const object = result.object;
+
+  return {
+    context,
+    analysis: {
+      ...object,
+      totalScore:
+        object.totalScore ??
+        object.interestLevelScore +
+          object.readinessToSignupScore +
+          object.networkSizeScore,
+      shouldScheduleFollowUpCall:
+        object.shouldScheduleFollowUpCall &&
+        object.finalInterestScore === "hot" &&
+        sourceType === "chat_thread",
+    },
+    normalizedTranscript: normalized.normalizedTranscript,
+    sourceType,
+    sourceId,
+    durationSeconds,
+  };
 }
 
 async function pickAssignedRmId(existingRmId?: string | null) {
@@ -665,16 +840,40 @@ async function pickAssignedRmId(existingRmId?: string | null) {
   return data?.id ?? null;
 }
 
+function sanitizePhoneForWhatsApp(phone: string) {
+  const digits = phone.replace(/[^\d]/g, "");
+  if (digits.startsWith("91") || digits.length > 10) {
+    return digits;
+  }
+  return `91${digits}`;
+}
+
+function buildWhatsAppLink(phone: string, message: string) {
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/${sanitizePhoneForWhatsApp(phone)}?text=${encoded}`;
+}
+
+function buildWarmFollowUpMessage(leadName: string, recommendedNextAction: string) {
+  const firstName = leadName.split(" ")[0] ?? leadName;
+  return `Hi ${firstName}, thanks for speaking with Rupeezy about the AP partner program. ${recommendedNextAction}`;
+}
+
 async function applyLeadAnalysis({
   lead,
-  analysis,
-  transcript,
+  result,
 }: {
   lead: LeadRow;
-  analysis: z.infer<typeof analysisSchema>;
-  transcript: string;
+  result: {
+    context: AnalysisSystemContextRow;
+    analysis: z.infer<typeof analysisSchema>;
+    normalizedTranscript: string;
+    sourceType: "chat_thread" | "call_thread";
+    sourceId: string;
+    durationSeconds: number | null;
+  };
 }) {
   const serviceClient = getServiceClient();
+  const { analysis } = result;
 
   const assignedRmId =
     analysis.finalInterestScore === "hot"
@@ -723,18 +922,74 @@ async function applyLeadAnalysis({
     throw new Error(error?.message ?? "Unable to update lead analysis.");
   }
 
-  await storeLeadMemory(
-    lead.id,
-    `Lead summary: ${analysis.overallSummary}\nReason: ${analysis.reason}\nRecommended next action: ${analysis.recommendedNextAction}\nTranscript:\n${transcript}`,
-    {
-      leadId: lead.id,
-      finalInterestScore: analysis.finalInterestScore,
+  const { data: scoreRow, error: scoreError } = await serviceClient
+    .from("lead_scores")
+    .insert({
+      lead_id: lead.id,
+      source_type: result.sourceType,
+      source_id: result.sourceId,
+      analysis_system_context_id: result.context.id,
+      classification: analysis.finalInterestScore,
+      interest_level_score: analysis.interestLevelScore,
+      readiness_to_signup_score: analysis.readinessToSignupScore,
+      network_size_score: analysis.networkSizeScore,
+      total_score: analysis.totalScore,
+      reason: analysis.reason,
+      detected_language: analysis.detectedLanguage,
+      duration_seconds: result.durationSeconds,
+      topics_covered: analysis.topicsCovered,
       objections: analysis.objections,
-      topicsCovered: analysis.topicsCovered,
-    },
-  );
+      recommended_next_action: analysis.recommendedNextAction,
+      handoff_summary: analysis.handoffSummary,
+      overall_summary: analysis.overallSummary,
+      suggested_opening_line: analysis.suggestedOpeningLine,
+      raw_model_output: analysis,
+    })
+    .select("*")
+    .single();
 
-  if (analysis.shouldScheduleFollowUpCall) {
+  if (scoreError || !scoreRow) {
+    throw new Error(scoreError?.message ?? "Unable to persist lead score.");
+  }
+
+  await serviceClient
+    .from("rm_tasks")
+    .delete()
+    .eq("lead_id", lead.id)
+    .in("status", ["pending", "in_progress"]);
+
+  await serviceClient
+    .from("follow_ups")
+    .delete()
+    .eq("lead_id", lead.id)
+    .in("status", ["ready", "opened"]);
+
+  if (analysis.finalInterestScore === "hot" && assignedRmId) {
+    await serviceClient.from("rm_tasks").insert({
+      lead_id: lead.id,
+      lead_score_id: scoreRow.id,
+      assigned_rm_id: assignedRmId,
+      priority: "high",
+      status: "pending",
+      recommended_action: analysis.recommendedNextAction,
+      suggested_opening_line: analysis.suggestedOpeningLine,
+      summary: analysis.handoffSummary,
+    });
+  }
+
+  if (analysis.finalInterestScore === "warm") {
+    const waLink = buildWhatsAppLink(lead.phone, analysis.recommendedNextAction);
+    await serviceClient.from("follow_ups").insert({
+      lead_id: lead.id,
+      lead_score_id: scoreRow.id,
+      channel: "whatsapp",
+      status: "ready",
+      message: buildWarmFollowUpMessage(lead.name, analysis.recommendedNextAction),
+      wa_me_link: waLink,
+    });
+  }
+
+  if (analysis.shouldScheduleFollowUpCall && assignedRmId) {
     await ensureScheduledCall({
       leadId: lead.id,
       rmId: assignedRmId,
@@ -743,11 +998,14 @@ async function applyLeadAnalysis({
     });
   }
 
-  return updatedLead as LeadRow;
+  return {
+    lead: updatedLead as LeadRow,
+    score: scoreRow as LeadScoreRow,
+  };
 }
 
 async function buildConversationContext(
-  leadId: string,
+  _leadId: string,
   graphThreadId: string,
   userMessage: string,
 ) {
@@ -756,11 +1014,9 @@ async function buildConversationContext(
     { userMessage },
     { configurable: { thread_id: graphThreadId } },
   );
-  const memorySnippets = await searchLeadMemories(leadId, userMessage);
 
   return {
     knowledgeSnippets: queryState.knowledgeSnippets,
-    memorySnippets,
   };
 }
 
@@ -816,6 +1072,57 @@ async function getMessagesForThread(threadId: string) {
   }
 
   return (data ?? []) as MessageRow[];
+}
+
+async function getLatestLeadScoreRow(leadId: string) {
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("lead_scores")
+    .select("*")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? null) as LeadScoreRow | null;
+}
+
+async function getLatestRmTaskRow(leadId: string) {
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("rm_tasks")
+    .select("*")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? null) as RmTaskRow | null;
+}
+
+async function getLatestFollowUpRow(leadId: string) {
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("follow_ups")
+    .select("*")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? null) as FollowUpRow | null;
 }
 
 async function ensurePublicLeadAccess(auth: AuthContext, lead: LeadRow) {
@@ -1245,6 +1552,12 @@ export async function getLeadDetail(auth: AuthContext, leadId: string) {
     .limit(1)
     .maybeSingle();
 
+  const [latestScore, latestRmTask, latestFollowUp] = await Promise.all([
+    getLatestLeadScoreRow(leadId),
+    getLatestRmTaskRow(leadId),
+    getLatestFollowUpRow(leadId),
+  ]);
+
   return {
     lead: formatLeadResponse(lead),
     latestChatThread: chatThread
@@ -1258,6 +1571,9 @@ export async function getLeadDetail(auth: AuthContext, leadId: string) {
       : null,
     messages: messages.map(formatMessage),
     latestCallThread: formatCallThread(callThread as CallThreadRow | null),
+    latestScore: latestScore ? formatLeadScore(latestScore) : null,
+    latestRmTask: formatRmTask(latestRmTask),
+    latestFollowUp: formatFollowUp(latestFollowUp),
   };
 }
 
@@ -1321,17 +1637,19 @@ export async function sendPublicChatMessage(auth: AuthContext, threadId: string,
 
   const finalHistory = await getMessagesForThread(threadId);
   const transcript = formatConversationTranscript(finalHistory);
-  const analysis = await analyzeTranscript({
+  const analysisResult = await analyzeTranscript({
     lead,
     transcript,
+    sourceType: "chat_thread",
+    sourceId: threadId,
+    durationSeconds: null,
   });
-  const updatedLead = await applyLeadAnalysis({
+  const { lead: updatedLead } = await applyLeadAnalysis({
     lead,
-    analysis,
-    transcript,
+    result: analysisResult,
   });
 
-  if (analysis.conversationComplete) {
+  if (analysisResult.analysis.conversationComplete) {
     await serviceClient
       .from("chat_threads")
       .update({
@@ -1347,8 +1665,8 @@ export async function sendPublicChatMessage(auth: AuthContext, threadId: string,
       id: assistant.id,
       messageText: assistant.text,
     },
-    lead: formatLeadResponse(updatedLead as LeadRow),
-    conversationComplete: analysis.conversationComplete,
+    lead: formatLeadResponse(updatedLead),
+    conversationComplete: analysisResult.analysis.conversationComplete,
   };
 }
 
@@ -1359,15 +1677,17 @@ export async function endPublicChat(auth: AuthContext, threadId: string) {
   const serviceClient = getServiceClient();
   const messages = await getMessagesForThread(threadId);
   const transcript = formatConversationTranscript(messages);
-  const analysis = await analyzeTranscript({
+  const analysisResult = await analyzeTranscript({
     lead,
     transcript,
+    sourceType: "chat_thread",
+    sourceId: threadId,
+    durationSeconds: null,
   });
 
-  const updatedLead = await applyLeadAnalysis({
+  const { lead: updatedLead } = await applyLeadAnalysis({
     lead,
-    analysis,
-    transcript,
+    result: analysisResult,
   });
 
   await serviceClient
@@ -1379,7 +1699,7 @@ export async function endPublicChat(auth: AuthContext, threadId: string) {
     .eq("id", threadId);
 
   return {
-    lead: formatLeadResponse(updatedLead as LeadRow),
+    lead: formatLeadResponse(updatedLead),
     conversationComplete: true,
   };
 }
@@ -1432,6 +1752,590 @@ export async function assignLeadToRm(auth: AuthContext, leadId: string, payload:
   }
 
   return formatLeadResponse(data as LeadRow);
+}
+
+type AnalyticsPeriod = "daily" | "weekly" | "monthly" | "all_time";
+
+function getPeriodStart(period: AnalyticsPeriod) {
+  const now = new Date();
+  if (period === "daily") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  }
+  if (period === "weekly") {
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  if (period === "monthly") {
+    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  return null;
+}
+
+function buildChunks(content: string, chunkSize = 900) {
+  const normalized = content.replace(/\r/g, "").trim();
+  if (!normalized) return [];
+  const sections = normalized
+    .split(/\n{2,}/)
+    .map((section) => section.trim())
+    .filter(Boolean);
+  const chunks: string[] = [];
+
+  for (const section of sections) {
+    if (section.length <= chunkSize) {
+      chunks.push(section);
+      continue;
+    }
+
+    for (let index = 0; index < section.length; index += chunkSize) {
+      chunks.push(section.slice(index, index + chunkSize));
+    }
+  }
+
+  return chunks.slice(0, 50);
+}
+
+async function rebuildKnowledgeChunks(documentId: string, content: string, metadata: Record<string, unknown>) {
+  const serviceClient = getServiceClient();
+  await serviceClient.from("knowledge_chunks").delete().eq("document_id", documentId);
+
+  const chunks = buildChunks(content);
+  if (!chunks.length) return 0;
+
+  const embeddedChunks = await Promise.all(
+    chunks.map(async (chunk, index) => {
+      const embedding = await embed({
+        model: google.textEmbeddingModel(env.geminiEmbeddingModel),
+        value: chunk,
+      });
+
+      return {
+        document_id: documentId,
+        chunk_index: index,
+        content: chunk,
+        embedding: embedding.embedding,
+        metadata,
+      };
+    }),
+  );
+
+  const { error } = await serviceClient.from("knowledge_chunks").insert(embeddedChunks);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return embeddedChunks.length;
+}
+
+async function getLatestTranscriptForLead(leadId: string) {
+  const serviceClient = getServiceClient();
+  const [{ data: callThread }, { data: chatThread }] = await Promise.all([
+    serviceClient
+      .from("call_threads")
+      .select("*")
+      .eq("lead_id", leadId)
+      .not("transcript", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    serviceClient
+      .from("chat_threads")
+      .select("*")
+      .eq("lead_id", leadId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const callCandidate = callThread as CallThreadRow | null;
+  if (callCandidate?.transcript?.trim()) {
+    return {
+      sourceType: "call_thread" as const,
+      sourceId: callCandidate.id,
+      transcript: callCandidate.transcript,
+      durationSeconds: callCandidate.duration_seconds,
+    };
+  }
+
+  const chatCandidate = chatThread as ChatThreadRow | null;
+  if (chatCandidate) {
+    const messages = await getMessagesForThread(chatCandidate.id);
+    const transcript = formatConversationTranscript(messages);
+    if (transcript.trim()) {
+      return {
+        sourceType: "chat_thread" as const,
+        sourceId: chatCandidate.id,
+        transcript,
+        durationSeconds: null,
+      };
+    }
+  }
+
+  throw new Error("No transcript available for analysis.");
+}
+
+export async function listAnalysisSystemContexts(auth: AuthContext) {
+  if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("analysis_system_contexts")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => formatAnalysisSystemContext(row as AnalysisSystemContextRow));
+}
+
+export async function createAnalysisSystemContext(auth: AuthContext, payload: z.infer<typeof analysisSystemContextInputSchema>) {
+  if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("analysis_system_contexts")
+    .insert({
+      name: payload.name,
+      description: maybeString(payload.description),
+      prompt_template: payload.promptTemplate,
+      output_schema: payload.outputSchema ?? {},
+      created_by: auth.user.id,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to create analysis system context.");
+  }
+
+  return formatAnalysisSystemContext(data as AnalysisSystemContextRow);
+}
+
+export async function updateAnalysisSystemContext(
+  auth: AuthContext,
+  contextId: string,
+  payload: Partial<z.infer<typeof analysisSystemContextInputSchema>>,
+) {
+  if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const updatePayload: Record<string, unknown> = {};
+  if (payload.name !== undefined) updatePayload.name = payload.name;
+  if (payload.description !== undefined) updatePayload.description = maybeString(payload.description);
+  if (payload.promptTemplate !== undefined) updatePayload.prompt_template = payload.promptTemplate;
+  if (payload.outputSchema !== undefined) updatePayload.output_schema = payload.outputSchema;
+
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("analysis_system_contexts")
+    .update(updatePayload)
+    .eq("id", contextId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to update analysis system context.");
+  }
+
+  return formatAnalysisSystemContext(data as AnalysisSystemContextRow);
+}
+
+export async function activateAnalysisSystemContext(auth: AuthContext, contextId: string) {
+  if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const { error: clearError } = await serviceClient
+    .from("analysis_system_contexts")
+    .update({ is_active: false })
+    .eq("is_active", true);
+
+  if (clearError) {
+    throw new Error(clearError.message);
+  }
+
+  const { data, error } = await serviceClient
+    .from("analysis_system_contexts")
+    .update({ is_active: true })
+    .eq("id", contextId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to activate analysis system context.");
+  }
+
+  return formatAnalysisSystemContext(data as AnalysisSystemContextRow);
+}
+
+export async function getLeadScoreDetail(auth: AuthContext, leadId: string) {
+  await ensureLeadAccess(auth, leadId);
+  const score = await getLatestLeadScoreRow(leadId);
+  if (!score) {
+    return null;
+  }
+  return formatLeadScore(score);
+}
+
+export async function runLeadAnalysis(auth: AuthContext, leadId: string) {
+  const lead = await ensureLeadAccess(auth, leadId);
+  const transcriptSource = await getLatestTranscriptForLead(leadId);
+  const analysisResult = await analyzeTranscript({
+    lead,
+    transcript: transcriptSource.transcript,
+    sourceType: transcriptSource.sourceType,
+    sourceId: transcriptSource.sourceId,
+    durationSeconds: transcriptSource.durationSeconds,
+  });
+  const { lead: updatedLead, score } = await applyLeadAnalysis({
+    lead,
+    result: analysisResult,
+  });
+
+  return {
+    lead: formatLeadResponse(updatedLead),
+    score: formatLeadScore(score),
+  };
+}
+
+export async function getAnalyticsOverview(auth: AuthContext, period: AnalyticsPeriod = "all_time") {
+  if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const start = getPeriodStart(period);
+  let leadsQuery = serviceClient.from("leads").select("*");
+  let scoresQuery = serviceClient.from("lead_scores").select("*");
+  let rmTasksQuery = serviceClient.from("rm_tasks").select("*");
+  let followUpsQuery = serviceClient.from("follow_ups").select("*");
+  let callsQuery = serviceClient.from("call_threads").select("*");
+  let chatsQuery = serviceClient.from("chat_threads").select("*");
+
+  if (start) {
+    leadsQuery = leadsQuery.gte("created_at", start);
+    scoresQuery = scoresQuery.gte("created_at", start);
+    rmTasksQuery = rmTasksQuery.gte("created_at", start);
+    followUpsQuery = followUpsQuery.gte("created_at", start);
+    callsQuery = callsQuery.gte("created_at", start);
+    chatsQuery = chatsQuery.gte("created_at", start);
+  }
+
+  const [
+    { data: leads },
+    { data: scores },
+    { data: rmTasks },
+    { data: followUps },
+    { data: callThreads },
+    { data: chatThreads },
+  ] = await Promise.all([leadsQuery, scoresQuery, rmTasksQuery, followUpsQuery, callsQuery, chatsQuery]);
+
+  const typedScores = (scores ?? []) as LeadScoreRow[];
+  const hot = typedScores.filter((score) => score.classification === "hot").length;
+  const warm = typedScores.filter((score) => score.classification === "warm").length;
+  const cold = typedScores.filter((score) => score.classification === "cold").length;
+
+  return {
+    period,
+    overview: {
+      totalLeads: (leads ?? []).length,
+      conversationCompleted: typedScores.length,
+      hot,
+      warm,
+      cold,
+      assignedToRm: (rmTasks ?? []).length,
+      followUpsScheduled: (followUps ?? []).length,
+      converted: ((leads ?? []) as LeadRow[]).filter((lead) => lead.progress_status === "converted").length,
+      chatVolume: (chatThreads ?? []).length,
+      callVolume: (callThreads ?? []).length,
+    },
+  };
+}
+
+export async function getAnalyticsFunnel(auth: AuthContext, period: AnalyticsPeriod = "all_time") {
+  const overview = await getAnalyticsOverview(auth, period);
+  return [
+    { stage: "new", label: "New Leads", count: overview.overview.totalLeads },
+    { stage: "conversation_completed", label: "Analyzed", count: overview.overview.conversationCompleted },
+    { stage: "assigned_to_rm", label: "Handed to RM", count: overview.overview.assignedToRm },
+    { stage: "follow_up_scheduled", label: "WhatsApp Follow-up", count: overview.overview.followUpsScheduled },
+    { stage: "converted", label: "Converted", count: overview.overview.converted },
+  ];
+}
+
+export async function getAnalyticsClassificationBreakdown(auth: AuthContext, period: AnalyticsPeriod = "all_time") {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  let query = serviceClient.from("lead_scores").select("*");
+  const start = getPeriodStart(period);
+  if (start) query = query.gte("created_at", start);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const scores = (data ?? []) as LeadScoreRow[];
+  return [
+    { name: "Hot", value: scores.filter((score) => score.classification === "hot").length, key: "hot" },
+    { name: "Warm", value: scores.filter((score) => score.classification === "warm").length, key: "warm" },
+    { name: "Cold", value: scores.filter((score) => score.classification === "cold").length, key: "cold" },
+  ];
+}
+
+export async function getAnalyticsLanguageBreakdown(auth: AuthContext, period: AnalyticsPeriod = "all_time") {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  let query = serviceClient.from("lead_scores").select("detected_language, created_at");
+  const start = getPeriodStart(period);
+  if (start) query = query.gte("created_at", start);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const language = String((row as { detected_language?: string | null }).detected_language ?? "unknown");
+    counts.set(language, (counts.get(language) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([language, count]) => ({ language, count }));
+}
+
+export async function getAnalyticsObjectionBreakdown(auth: AuthContext, period: AnalyticsPeriod = "all_time") {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  let query = serviceClient.from("lead_scores").select("objections, created_at");
+  const start = getPeriodStart(period);
+  if (start) query = query.gte("created_at", start);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const summary = new Map<string, { type: string; count: number; resolved: number; partiallyResolved: number; unresolved: number }>();
+  for (const row of data ?? []) {
+    const objections = ((row as { objections?: Record<string, unknown>[] }).objections ?? []);
+    for (const objection of objections) {
+      const type = String(objection.type ?? "other");
+      const status = String(objection.status ?? "unresolved");
+      const entry = summary.get(type) ?? {
+        type,
+        count: 0,
+        resolved: 0,
+        partiallyResolved: 0,
+        unresolved: 0,
+      };
+      entry.count += 1;
+      if (status === "resolved") entry.resolved += 1;
+      else if (status === "partially_resolved") entry.partiallyResolved += 1;
+      else entry.unresolved += 1;
+      summary.set(type, entry);
+    }
+  }
+  return [...summary.values()].sort((left, right) => right.count - left.count);
+}
+
+export async function getAnalyticsRmPerformance(auth: AuthContext) {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  const [{ data: users }, { data: tasks }, { data: leads }] = await Promise.all([
+    serviceClient.from("users").select("*").eq("user_role", "rm").order("created_at", { ascending: true }),
+    serviceClient.from("rm_tasks").select("*"),
+    serviceClient.from("leads").select("assigned_rm_id, progress_status"),
+  ]);
+
+  return ((users ?? []) as Array<Record<string, unknown>>).map((user) => {
+    const assignedLeadCount = ((leads ?? []) as Array<Record<string, unknown>>).filter(
+      (lead) => lead.assigned_rm_id === user.id,
+    ).length;
+    const pendingTaskCount = ((tasks ?? []) as Array<Record<string, unknown>>).filter(
+      (task) => task.assigned_rm_id === user.id && task.status !== "completed",
+    ).length;
+    const convertedCount = ((leads ?? []) as Array<Record<string, unknown>>).filter(
+      (lead) => lead.assigned_rm_id === user.id && lead.progress_status === "converted",
+    ).length;
+    return {
+      id: String(user.id),
+      name: String(user.name),
+      email: String(user.email),
+      role: "rm",
+      isActive: Boolean(user.is_active),
+      assignedLeadCount,
+      pendingTaskCount,
+      convertedCount,
+    };
+  });
+}
+
+export async function listFollowUps(auth: AuthContext) {
+  const serviceClient = getServiceClient();
+  let query = serviceClient.from("follow_ups").select("*").order("created_at", { ascending: false });
+
+  if (auth.userRole === "rm") {
+    const { data: leadIds } = await serviceClient.from("leads").select("id").eq("assigned_rm_id", auth.user.id);
+    const ids = (leadIds ?? []).map((row: { id: string }) => row.id);
+    if (!ids.length) {
+      return [];
+    }
+    query = query.in("lead_id", ids);
+  } else if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => formatFollowUp(row as FollowUpRow));
+}
+
+export async function openFollowUpLink(auth: AuthContext, followUpId: string) {
+  if (auth.userRole !== "admin" && auth.userRole !== "rm") {
+    throw new Error("Forbidden");
+  }
+
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("follow_ups")
+    .update({ status: "opened" })
+    .eq("id", followUpId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to open follow-up link.");
+  }
+
+  return formatFollowUp(data as FollowUpRow);
+}
+
+export async function listRmTasks(auth: AuthContext) {
+  const serviceClient = getServiceClient();
+  let query = serviceClient.from("rm_tasks").select("*").order("created_at", { ascending: false });
+  if (auth.userRole === "rm") {
+    query = query.eq("assigned_rm_id", auth.user.id);
+  } else if (auth.userRole !== "admin") {
+    throw new Error("Forbidden");
+  }
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => formatRmTask(row as RmTaskRow));
+}
+
+export async function listKnowledgeDocuments(auth: AuthContext) {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("knowledge_documents")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const docs = (data ?? []) as KnowledgeDocumentRow[];
+  const counts = await Promise.all(
+    docs.map(async (doc) => {
+      const { count } = await serviceClient
+        .from("knowledge_chunks")
+        .select("*", { count: "exact", head: true })
+        .eq("document_id", doc.id);
+      return [doc.id, count ?? 0] as const;
+    }),
+  );
+  const countMap = new Map(counts);
+
+  return docs.map((doc) => formatKnowledgeDocument(doc, countMap.get(doc.id) ?? 0));
+}
+
+export async function createKnowledgeDocument(auth: AuthContext, payload: z.infer<typeof knowledgeDocumentSchema>) {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  const { data, error } = await serviceClient
+    .from("knowledge_documents")
+    .insert({
+      title: payload.title,
+      content: payload.content,
+      source: payload.type,
+      document_type: payload.type,
+      source_file_name: maybeString(payload.sourceFileName),
+      is_active: payload.isActive ?? true,
+      metadata: {
+        manualVapiUploadRequired: true,
+      },
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to create knowledge document.");
+  }
+
+  const chunkCount = await rebuildKnowledgeChunks(
+    data.id,
+    payload.content,
+    {
+      title: payload.title,
+      type: payload.type,
+    },
+  );
+
+  return formatKnowledgeDocument(data as KnowledgeDocumentRow, chunkCount);
+}
+
+export async function updateKnowledgeDocument(
+  auth: AuthContext,
+  documentId: string,
+  payload: Partial<z.infer<typeof knowledgeDocumentSchema>>,
+) {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  const updatePayload: Record<string, unknown> = {};
+  if (payload.title !== undefined) updatePayload.title = payload.title;
+  if (payload.content !== undefined) updatePayload.content = payload.content;
+  if (payload.type !== undefined) {
+    updatePayload.source = payload.type;
+    updatePayload.document_type = payload.type;
+  }
+  if (payload.sourceFileName !== undefined) updatePayload.source_file_name = maybeString(payload.sourceFileName);
+  if (payload.isActive !== undefined) updatePayload.is_active = payload.isActive;
+
+  const { data, error } = await serviceClient
+    .from("knowledge_documents")
+    .update(updatePayload)
+    .eq("id", documentId)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to update knowledge document.");
+  }
+
+  const chunkCount = payload.content !== undefined
+    ? await rebuildKnowledgeChunks(
+        data.id,
+        payload.content,
+        {
+          title: data.title,
+          type: data.document_type,
+        },
+      )
+    : Number(
+        (
+          await serviceClient
+            .from("knowledge_chunks")
+            .select("*", { count: "exact", head: true })
+            .eq("document_id", data.id)
+        ).count ?? 0,
+      );
+
+  return formatKnowledgeDocument(data as KnowledgeDocumentRow, chunkCount);
+}
+
+export async function deleteKnowledgeDocument(auth: AuthContext, documentId: string) {
+  if (auth.userRole !== "admin") throw new Error("Forbidden");
+  const serviceClient = getServiceClient();
+  const { error } = await serviceClient
+    .from("knowledge_documents")
+    .delete()
+    .eq("id", documentId);
+
+  if (error) throw new Error(error.message);
+  return { id: documentId };
 }
 
 type DispatcherInput = {
@@ -1745,14 +2649,16 @@ export async function processVapiWebhookPayload(payload: Record<string, unknown>
     .eq("id", callThread.id);
 
   const lead = await getLeadById(callThread.lead_id);
-  const analysis = await analyzeTranscript({
+  const analysisResult = await analyzeTranscript({
     lead,
     transcript,
+    sourceType: "call_thread",
+    sourceId: callThread.id,
+    durationSeconds,
   });
-  const updatedLead = await applyLeadAnalysis({
+  const { lead: updatedLead } = await applyLeadAnalysis({
     lead,
-    analysis,
-    transcript,
+    result: analysisResult,
   });
 
   return {
@@ -1764,6 +2670,6 @@ export async function processVapiWebhookPayload(payload: Record<string, unknown>
       ended_at: endedAt,
       duration_seconds: durationSeconds,
     }),
-    lead: formatLeadResponse(updatedLead as LeadRow),
+    lead: formatLeadResponse(updatedLead),
   };
 }

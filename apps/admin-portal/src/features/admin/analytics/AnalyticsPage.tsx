@@ -1,17 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, Bot, Flame, MessageSquareText, PhoneCall, ThermometerSun } from "lucide-react";
 import { adminApi } from "../../../services/adminApi";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const classColors = {
+  hot: "#f97316",
+  warm: "#eab308",
+  cold: "#06b6d4",
+};
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "all_time">("all_time");
 
-  const { data: overviewData, isFetching: isOverviewFetching } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ["analytics-overview", period],
     queryFn: () => adminApi.getAdminDashboardOverview(period),
   });
@@ -21,41 +26,35 @@ export default function AnalyticsPage() {
     queryFn: adminApi.getRmPerformance,
   });
 
-  const { data: campaignData, isFetching: isCampaignFetching } = useQuery({
-    queryKey: ["analytics-campaigns"],
-    queryFn: adminApi.getCampaigns,
-  });
-
-  const overview = overviewData?.data;
+  const overview = data?.data;
   const rms = rmData?.data || [];
-  const campaigns = campaignData?.data || [];
+  const classificationData = overview?.classificationBreakdown || [];
+  const languageData = overview?.languageStats || [];
+  const objectionData = overview?.objectionStats || [];
 
-  const classColors = {
-    hot: "#f97316", // orange-500
-    warm: "#ca8a04", // yellow-600
-    cold: "#06b6d4"  // cyan-500
-  };
-
-  const pieData = overview ? [
-    { name: 'Hot', value: overview.overview.hot, fill: classColors.hot },
-    { name: 'Warm', value: overview.overview.warm, fill: classColors.warm },
-    { name: 'Cold', value: overview.overview.cold, fill: classColors.cold },
-  ] : [];
-
-  const isDark = document.documentElement.classList.contains('dark');
-  const barColor = isDark ? "#A1A1AA" : "#3f3f46"; // zinc-400 / zinc-700
-  const axisColor = isDark ? "#71717A" : "#A1A1AA"; // zinc-500 / zinc-400
+  const topCards = overview
+    ? [
+        { label: "Analyzed Conversations", value: overview.overview.conversationCompleted, icon: Bot, tone: "text-blue-500" },
+        { label: "Hot Leads", value: overview.overview.hot, icon: Flame, tone: "text-orange-500" },
+        { label: "Warm Follow-ups", value: overview.overview.followUpsScheduled, icon: ThermometerSun, tone: "text-yellow-500" },
+        { label: "Call Volume", value: overview.overview.callVolume, icon: PhoneCall, tone: "text-emerald-500" },
+        { label: "Chat Volume", value: overview.overview.chatVolume, icon: MessageSquareText, tone: "text-cyan-500" },
+        { label: "Assigned to RM", value: overview.overview.assignedToRm, icon: Activity, tone: "text-violet-500" },
+      ]
+    : [];
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex flex-col gap-1">
+        <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Analytics</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Detailed performance insights across all channels.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Theme 7 funnel visibility: conversation volume, qualification breakdown, language mix, objections, and RM handoff load.
+          </p>
         </div>
-        <Select value={period} onValueChange={(val: any) => setPeriod(val)}>
+        <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
           <SelectTrigger className="w-[180px] bg-white dark:bg-[#111827] border-zinc-200 dark:border-zinc-800">
-            <SelectValue placeholder="Select Period" />
+            <SelectValue placeholder="Select period" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="daily">Today</SelectItem>
@@ -66,39 +65,47 @@ export default function AnalyticsPage() {
         </Select>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {isFetching
+          ? Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-[112px] rounded-xl" />)
+          : topCards.map((item) => (
+              <Card key={item.label} className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
+                <CardContent className="p-5 flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">{item.label}</p>
+                    <div className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{item.value}</div>
+                  </div>
+                  <item.icon className={`h-5 w-5 ${item.tone}`} />
+                </CardContent>
+              </Card>
+            ))}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
           <CardHeader>
-            <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Classification Breakdown</CardTitle>
+            <CardTitle>Qualification Breakdown</CardTitle>
+            <CardDescription>Hot, Warm, and Cold distribution from persisted transcript scores.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            {isOverviewFetching ? (
-              <Skeleton className="w-full h-full rounded-md" />
-            ) : overview && (
+          <CardContent className="h-[320px]">
+            {isFetching ? (
+              <Skeleton className="h-full rounded-xl" />
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={classificationData}
                     dataKey="value"
                     nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    innerRadius={70}
+                    outerRadius={110}
                     paddingAngle={2}
-                    label
-                    stroke="none"
                   >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    {classificationData.map((entry: any) => (
+                      <Cell key={entry.key} fill={classColors[entry.key as keyof typeof classColors] ?? "#94a3b8"} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: isDark ? '#1F2937' : '#fff', borderColor: isDark ? '#374151' : '#E5E7EB', color: isDark ? '#F3F4F6' : '#111827' }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ color: isDark ? '#D1D5DB' : '#374151' }}
-                  />
+                  <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -107,21 +114,66 @@ export default function AnalyticsPage() {
 
         <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
           <CardHeader>
-            <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Lead Stages</CardTitle>
+            <CardTitle>Conversation Funnel</CardTitle>
+            <CardDescription>Theme 7 path from lead capture to RM handoff.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[320px]">
+            {isFetching ? (
+              <Skeleton className="h-full rounded-xl" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={overview?.funnel ?? []} margin={{ left: 0, right: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#111827" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
+          <CardHeader>
+            <CardTitle>Language Mix</CardTitle>
+            <CardDescription>Detected transcript language across analyzed conversations.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            {isOverviewFetching ? (
-              <Skeleton className="w-full h-full rounded-md" />
-            ) : overview && (
+            {isFetching ? (
+              <Skeleton className="h-full rounded-xl" />
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={overview.funnel}>
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: axisColor}} />
-                  <YAxis hide />
-                  <Tooltip 
-                    cursor={{fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}}
-                    contentStyle={{ backgroundColor: isDark ? '#1F2937' : '#fff', borderColor: isDark ? '#374151' : '#E5E7EB', color: isDark ? '#F3F4F6' : '#111827' }}
-                  />
-                  <Bar dataKey="count" fill={barColor} radius={[4, 4, 0, 0]} />
+                <BarChart data={languageData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="language" axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
+          <CardHeader>
+            <CardTitle>Objection Trends</CardTitle>
+            <CardDescription>Most common objections raised by partner leads.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {isFetching ? (
+              <Skeleton className="h-full rounded-xl" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={objectionData.slice(0, 6)} layout="vertical" margin={{ left: 24 }}>
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="type" width={140} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#f97316" radius={[0, 8, 8, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -131,95 +183,47 @@ export default function AnalyticsPage() {
 
       <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
         <CardHeader>
-          <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">RM Performance</CardTitle>
+          <CardTitle>RM Performance</CardTitle>
+          <CardDescription>Workload and conversion visibility for handoff execution.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                <TableRow className="border-none hover:bg-transparent">
-                  <TableHead className="text-zinc-600 dark:text-zinc-400">RM Name</TableHead>
-                  <TableHead className="text-center text-zinc-600 dark:text-zinc-400">Active</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Assigned Leads</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Pending Tasks</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Converted</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isRmFetching ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <TableRow key={i} className="border-b border-zinc-200 dark:border-zinc-800/50">
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell align="center"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : rms.filter((rm: any) => rm.role === 'rm').map((rm: any) => (
-                  <TableRow key={rm.id} className="border-b border-zinc-200 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                    <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">{rm.name}</TableCell>
-                    <TableCell className="text-center">
-                      {rm.isActive ? <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border-none shadow-none">Active</Badge> : <Badge variant="secondary" className="border-none shadow-none bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400">Inactive</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right">{rm.assignedLeadCount}</TableCell>
-                    <TableCell className="text-right text-orange-600 dark:text-orange-400 font-medium">{rm.pendingTaskCount}</TableCell>
-                    <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{rm.convertedCount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111827]">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Campaign Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                <TableRow className="border-none hover:bg-transparent">
-                  <TableHead className="text-zinc-600 dark:text-zinc-400">Campaign</TableHead>
-                  <TableHead className="text-zinc-600 dark:text-zinc-400">Source</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Total</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Hot</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Warm</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Cold</TableHead>
-                  <TableHead className="text-right text-zinc-600 dark:text-zinc-400">Converted</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isCampaignFetching ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <TableRow key={i} className="border-b border-zinc-200 dark:border-zinc-800/50">
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                      <TableCell align="right"><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : campaigns.map((camp: any) => (
-                  <TableRow key={camp.id} className="border-b border-zinc-200 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                    <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">{camp.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize border-zinc-200 dark:border-zinc-700">{camp.source}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-zinc-900 dark:text-zinc-100">{camp.leadCount}</TableCell>
-                    <TableCell className="text-right text-orange-500">{camp.hotCount}</TableCell>
-                    <TableCell className="text-right text-yellow-500">{camp.warmCount}</TableCell>
-                    <TableCell className="text-right text-cyan-500">{camp.coldCount}</TableCell>
-                    <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">{camp.convertedCount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          {isRmFetching ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-[116px] rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {rms.map((rm: any) => (
+                <div key={rm.id} className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-[#0B0F14]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-zinc-900 dark:text-zinc-100">{rm.name}</div>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">{rm.email}</div>
+                    </div>
+                    <div className={`text-xs font-medium ${rm.isActive ? "text-emerald-500" : "text-zinc-400"}`}>
+                      {rm.isActive ? "Active" : "Inactive"}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-lg bg-white p-3 dark:bg-[#111827]">
+                      <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{rm.assignedLeadCount}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Assigned</div>
+                    </div>
+                    <div className="rounded-lg bg-white p-3 dark:bg-[#111827]">
+                      <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{rm.pendingTaskCount}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pending</div>
+                    </div>
+                    <div className="rounded-lg bg-white p-3 dark:bg-[#111827]">
+                      <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{rm.convertedCount}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Converted</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
