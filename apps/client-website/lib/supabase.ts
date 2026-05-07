@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
@@ -17,15 +17,25 @@ export function assertSupabaseConfigured() {
   }
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 8,
-    },
-  },
-});
+let supabaseClient: SupabaseClient | null = null;
+
+export function getSupabaseClient() {
+  assertSupabaseConfigured();
+
+  if (!supabaseClient) {
+    supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 8,
+        },
+      },
+    });
+  }
+
+  return supabaseClient;
+}

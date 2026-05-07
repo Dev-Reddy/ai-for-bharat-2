@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BadgeCheck, Bot, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import {
   endPublicChat,
   getPublicThreadMessages,
@@ -75,6 +75,7 @@ export function ChatWindow() {
     }
 
     let isActive = true;
+    const supabase = getSupabaseClient();
     setIsLoadingThread(true);
 
     getPublicThreadMessages(chatThreadId)

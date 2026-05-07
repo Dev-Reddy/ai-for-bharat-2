@@ -1,5 +1,5 @@
 import { LeadData } from "@/store/leadSessionStore";
-import { assertSupabaseConfigured, supabase } from "@/lib/supabase";
+import { assertSupabaseConfigured, getSupabaseClient } from "@/lib/supabase";
 
 const API_BASE = `${
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
@@ -7,6 +7,7 @@ const API_BASE = `${
 
 async function ensureAnonymousSession() {
   assertSupabaseConfigured();
+  const supabase = getSupabaseClient();
   const { data: sessionData } = await supabase.auth.getSession();
   if (sessionData.session?.access_token) {
     return sessionData.session.access_token;
