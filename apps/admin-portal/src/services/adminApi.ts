@@ -8,10 +8,9 @@ import {
   MOCK_FEEDBACK,
 } from "../mocks/admin.mock";
 import { AnalysisSystemContext, KnowledgeSystemContext, Lead, User } from "../types/admin.types";
-import { supabase } from "../lib/supabase";
+import { API_BASE, supabase } from "../lib/supabase";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
 
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession();

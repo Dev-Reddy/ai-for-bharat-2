@@ -1,6 +1,4 @@
-import { supabase } from "../lib/supabase";
-
-const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
+import { API_BASE, supabase } from "../lib/supabase";
 
 export type RMDashboardPeriod = "daily" | "weekly" | "monthly" | "all_time";
 

@@ -1,8 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { API_BASE, supabase } from "./supabase";
 import { authStoreActions, type AuthClaims, type AuthProfile } from "../store/authStore";
 
-const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api`;
 const EXPECTED_ROLE = "rm";
 
 let initialized = false;
