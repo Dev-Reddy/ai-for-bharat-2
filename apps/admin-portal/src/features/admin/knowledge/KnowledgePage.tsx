@@ -240,15 +240,8 @@ export default function KnowledgePage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
-                      {doc.isActive ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shadow-none border-none">Active</Badge>
-                      ) : (
+                      {!doc.isActive ? (
                         <Badge variant="secondary" className="shadow-none border-none bg-zinc-100 dark:bg-zinc-800 max-w-fit">Draft</Badge>
-                      )}
-                      {getMem0SyncStatus(doc) ? (
-                        <Badge variant="outline" className="shadow-none border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300">
-                          Mem0 {getMem0SyncStatus(doc)}
-                        </Badge>
                       ) : null}
                       {getMem0SyncError(doc) ? (
                         <Badge variant="outline" className="shadow-none border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300 max-w-[260px] truncate" title={getMem0SyncError(doc) ?? ""}>

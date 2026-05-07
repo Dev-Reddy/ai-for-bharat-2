@@ -84,7 +84,10 @@ export default function AdminLayout() {
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-1 px-2">
           {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
+            const normalize = (p: string) => (p ? p.replace(/\/+$/, "") : p) || "/";
+            const lp = normalize(location.pathname);
+            const ip = normalize(item.path);
+            const isActive = lp === ip || lp.startsWith(ip + "/");
             return (
               <Link
                 key={item.path}
