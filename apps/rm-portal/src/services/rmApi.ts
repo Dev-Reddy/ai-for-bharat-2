@@ -37,9 +37,7 @@ function mapLead(raw: any) {
     typeof raw.interestLevelScore === "number" &&
     typeof raw.readinessToSignupScore === "number" &&
     typeof raw.networkSizeScore === "number"
-      ? Math.round(
-          (raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore) / 3,
-        )
+      ? Math.round(raw.interestLevelScore + raw.readinessToSignupScore + raw.networkSizeScore)
       : 0;
 
   return {
@@ -68,17 +66,22 @@ function mapLead(raw: any) {
     latestNextAction: raw.recommendedNextAction ?? "",
     handoffSummary: raw.handoffSummary ?? "",
     objections: raw.objections ?? [],
-    mainObjection: raw.objections?.[0] ?? "No objection captured",
+    mainObjection: raw.objections?.[0]?.type ?? "No objection captured",
     topicsCovered: raw.topicsCovered ?? [],
     interestLevelScore: raw.interestLevelScore ?? 0,
     readinessToSignupScore: raw.readinessToSignupScore ?? 0,
     networkSizeScore: raw.networkSizeScore ?? 0,
+    waMeLink: raw.waMeLink ?? null,
   };
 }
 
 export const rmApi = {
   getRMDashboardOverview: async () => {
-    const leads = await apiRequest("/leads", { method: "GET" });
+    const [leads, tasks, followUps] = await Promise.all([
+      apiRequest("/leads", { method: "GET" }),
+      apiRequest("/rm-tasks", { method: "GET" }),
+      apiRequest("/follow-ups", { method: "GET" }),
+    ]);
     const mapped = (Array.isArray(leads) ? leads : []).map(mapLead);
     const hotLeads = mapped.filter((lead: any) => lead.classification === "hot");
     const followUpsDue = mapped.filter((lead: any) => lead.classification === "warm");
@@ -86,8 +89,8 @@ export const rmApi = {
     return {
       overview: {
         assignedHotLeads: hotLeads.length,
-        pendingTasks: mapped.filter((lead: any) => lead.status !== "converted").length,
-        followUpsDue: followUpsDue.length,
+        pendingTasks: Array.isArray(tasks) ? tasks.filter((task: any) => task.status !== "completed").length : 0,
+        followUpsDue: Array.isArray(followUps) ? followUps.length : followUpsDue.length,
         convertedLeads: mapped.filter((lead: any) => lead.status === "converted").length,
         closedLeads: mapped.filter((lead: any) => lead.classification === "cold").length,
         averageLeadScore:
@@ -117,6 +120,33 @@ export const rmApi = {
   getRMLeadDetail: async (leadId: string) => {
     const data = await apiRequest(`/leads/${leadId}`, { method: "GET" });
     const lead = mapLead(data.lead);
+    const score = data.latestScore
+      ? {
+          classification: data.latestScore.classification,
+          totalScore: Math.round(data.latestScore.totalScore),
+          readinessScore: Math.round(data.latestScore.readinessToSignupScore),
+          engagementScore: Math.round(data.latestScore.interestLevelScore),
+          fitScore: Math.round(data.latestScore.networkSizeScore),
+          reason: data.latestScore.reason ?? "Lead analysis pending.",
+          recommendedNextAction:
+            data.latestScore.recommendedNextAction ?? "Follow up with this lead.",
+          positiveSignals: data.latestScore.topicsCovered ?? [],
+          negativeSignals: [],
+          objections: data.latestScore.objections ?? [],
+        }
+      : {
+          classification: lead.classification,
+          totalScore: lead.latestScore,
+          readinessScore: lead.readinessToSignupScore,
+          engagementScore: lead.interestLevelScore,
+          fitScore: lead.networkSizeScore,
+          reason: data.lead.reason ?? "Lead analysis pending.",
+          recommendedNextAction:
+            data.lead.recommendedNextAction ?? "Follow up with this lead.",
+          positiveSignals: data.lead.topicsCovered ?? [],
+          negativeSignals: [],
+          objections: data.lead.objections ?? [],
+        };
     return {
       lead,
       messages: (data.messages ?? []).map((message: any) => ({
@@ -124,27 +154,14 @@ export const rmApi = {
         role: message.senderType === "ai" ? "assistant" : "user",
         content: message.messageText,
       })),
-      score: {
-        classification: lead.classification,
-        totalScore: lead.latestScore,
-        readinessScore: lead.readinessToSignupScore,
-        engagementScore: lead.interestLevelScore,
-        fitScore: lead.networkSizeScore,
-        reason: data.lead.reason ?? "Lead analysis pending.",
-        recommendedNextAction:
-          data.lead.recommendedNextAction ?? "Follow up with this lead.",
-        positiveSignals: data.lead.topicsCovered ?? [],
-        negativeSignals: [],
-        objections: (data.lead.objections ?? []).map((objection: string) => ({
-          type: objection,
-          leadStatement: objection,
-        })),
-      },
-      rmTask: {
+      score,
+      rmTask: data.latestRmTask ?? {
         suggestedOpeningLine:
+          data.latestScore?.suggestedOpeningLine ??
           data.lead.handoffSummary ??
           "Continue from the AI summary and confirm the next step.",
       },
+      followUp: data.latestFollowUp ?? null,
     };
   },
 
@@ -169,5 +186,19 @@ export const rmApi = {
     });
 
     return mapLead(data.lead);
+  },
+
+  openFollowUpLink: async (followUpId: string) => {
+    return await apiRequest(`/follow-ups/${followUpId}/open-link`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  scheduleLeadCall: async (leadId: string) => {
+    return await apiRequest(`/leads/${leadId}/schedule-call`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   },
 };

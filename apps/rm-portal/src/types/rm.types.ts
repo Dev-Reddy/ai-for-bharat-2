@@ -20,4 +20,19 @@ export interface Lead {
   status: LeadStatus;
   classification: LeadClassification;
   latestScore: number;
+  latestSummary?: string;
+  latestNextAction?: string;
+  handoffSummary?: string;
+  objections?: Array<{
+    type: string;
+    leadStatement: string;
+    status: ObjectionResolutionStatus;
+    aiResponseSummary: string;
+  }>;
+  mainObjection?: string;
+  topicsCovered?: string[];
+  interestLevelScore?: number;
+  readinessToSignupScore?: number;
+  networkSizeScore?: number;
+  waMeLink?: string | null;
 }
