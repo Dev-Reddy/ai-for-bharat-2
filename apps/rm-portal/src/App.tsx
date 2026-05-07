@@ -6,7 +6,6 @@ import { rmRoute } from "./routes/rm";
 import { dashboardRoute } from "./routes/rm.dashboard";
 import { leadsRoute } from "./routes/rm.leads";
 import { leadDetailRoute } from "./routes/rm.leads.$leadId";
-import { hotLeadsRoute } from "./routes/rm.hot-leads";
 import { followUpsRoute } from "./routes/rm.follow-ups";
 import { feedbackRoute } from "./routes/rm.feedback";
 import { notificationsRoute } from "./routes/rm.notifications";
@@ -37,7 +36,6 @@ const routeTree = rootRoute.addChildren([
     dashboardRoute,
     leadsRoute,
     leadDetailRoute,
-    hotLeadsRoute,
     followUpsRoute,
     feedbackRoute,
     notificationsRoute,
